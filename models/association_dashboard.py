@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 
-from odoo import api, models
+from dateutil.relativedelta import relativedelta
+
+from odoo import api, fields, models
 
 
 class AssociationDashboard(models.AbstractModel):
@@ -15,6 +17,7 @@ class AssociationDashboard(models.AbstractModel):
     def get_dashboard_data(self):
 
         company = self.env.company
+        today = fields.Date.context_today(self)
 
         Member = self.env["association.member"]
         Meeting = self.env["association.meeting"]
@@ -22,6 +25,7 @@ class AssociationDashboard(models.AbstractModel):
         Subscription = self.env["association.subscription"]
         Fund = self.env["association.fund"]
         Penalty = self.env["association.penalty"]
+        Expense = self.env["association.expense"]
 
         # ======================================================
         # MEMBRES
@@ -43,6 +47,25 @@ class AssociationDashboard(models.AbstractModel):
             active_member_domain
         )
 
+        member_categories = []
+        for group in Member.read_group(
+            member_domain,
+            ["category_id"],
+            ["category_id"],
+            lazy=False,
+        ):
+            category = group.get("category_id")
+            member_categories.append({
+                "name": category[1] if category else "Sans catégorie",
+                "count": group["__count"],
+                "percentage": round(
+                    group["__count"] * 100 / member_count
+                ) if member_count else 0,
+            })
+        member_categories.sort(
+            key=lambda item: item["count"], reverse=True
+        )
+
         # ======================================================
         # RÉUNIONS
         # ======================================================
@@ -52,6 +75,7 @@ class AssociationDashboard(models.AbstractModel):
         ]
 
         upcoming_meeting_domain = meeting_domain + [
+            ("meeting_date", ">=", today),
             (
                 "state",
                 "in",
@@ -170,7 +194,6 @@ class AssociationDashboard(models.AbstractModel):
                     "state",
                     "in",
                     [
-                        "paid",
                         "confirmed",
                         "collected",
                     ],
@@ -181,6 +204,54 @@ class AssociationDashboard(models.AbstractModel):
         payment_total = sum(
             confirmed_payments.mapped("amount")
         )
+
+        month_start = today.replace(day=1)
+        payment_months = []
+        month_names = [
+            "Janv.", "Févr.", "Mars", "Avr.", "Mai", "Juin",
+            "Juil.", "Août", "Sept.", "Oct.", "Nov.", "Déc.",
+        ]
+        for offset in range(5, -1, -1):
+            start = month_start - relativedelta(months=offset)
+            end = start + relativedelta(months=1)
+            monthly_payments = Payment.search(payment_domain + [
+                ("state", "in", ["collected", "confirmed"]),
+                ("payment_date", ">=", start),
+                ("payment_date", "<", end),
+            ])
+            payment_months.append({
+                "month": month_names[start.month - 1],
+                "amount": sum(monthly_payments.mapped("amount")),
+                "count": len(monthly_payments),
+            })
+
+        validated_expenses = Expense.search([
+            ("company_id", "=", company.id),
+            ("state", "=", "validated"),
+        ])
+        expense_total = sum(validated_expenses.mapped("amount"))
+        expense_labels = dict(
+            Expense._fields["expense_type"]._description_selection(self.env)
+        )
+        expense_totals = {}
+        for expense in validated_expenses:
+            expense_totals[expense.expense_type] = (
+                expense_totals.get(expense.expense_type, 0.0)
+                + expense.amount
+            )
+        expense_breakdown = [
+            {
+                "name": expense_labels.get(code, code or "Autre"),
+                "amount": amount,
+                "percentage": round(amount * 100 / expense_total)
+                if expense_total else 0,
+            }
+            for code, amount in sorted(
+                expense_totals.items(),
+                key=lambda item: item[1],
+                reverse=True,
+            )[:5]
+        ]
 
         # ======================================================
         # TRÉSORERIE
@@ -509,6 +580,8 @@ class AssociationDashboard(models.AbstractModel):
 
                 "active":
                     active_member_count,
+
+                "categories": member_categories[:5],
             },
 
             "meetings": {
@@ -533,6 +606,13 @@ class AssociationDashboard(models.AbstractModel):
 
                 "total":
                     payment_total,
+
+                "monthly": payment_months,
+            },
+
+            "expenses": {
+                "total": expense_total,
+                "breakdown": expense_breakdown,
             },
 
             "treasury": {

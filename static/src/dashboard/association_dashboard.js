@@ -36,6 +36,7 @@ export class AssociationDashboard extends Component {
                 meetings: {},
                 subscriptions: {},
                 payments: {},
+                expenses: {breakdown: []},
                 treasury: {},
                 penalties: {recent: []},
                 recent_payments: [],
@@ -115,6 +116,11 @@ export class AssociationDashboard extends Component {
         return total ? Math.round((Number(this.state.data.members.active || 0) / total) * 100) : 0;
     }
 
+    get expensePrimaryPercent() {
+        const first = (this.state.data.expenses.breakdown || [])[0];
+        return first ? Number(first.percentage || 0) : 0;
+    }
+
     get kpis() {
         const data = this.state.data;
         return [
@@ -128,21 +134,16 @@ export class AssociationDashboard extends Component {
     }
 
     get chartBars() {
-        return [
-            {month: "Janv.", height: 55}, {month: "Févr.", height: 65},
-            {month: "Mars", height: 61}, {month: "Avr.", height: 72},
-            {month: "Mai", height: 78}, {month: "Juin", height: 68},
-        ];
+        const months = this.state.data.payments.monthly || [];
+        const maximum = Math.max(...months.map((item) => Number(item.amount)), 1);
+        return months.map((item) => ({
+            ...item,
+            height: Math.max(3, Math.round(Number(item.amount) * 100 / maximum)),
+        }));
     }
 
     get sections() {
-        return [
-            {name: "Actifs", value: this.memberPercent},
-            {name: "Présences", value: Math.min(100, Number(this.state.data.meetings.last_attendance || 0))},
-            {name: "À jour", value: Math.max(0, 100 - Math.min(100, Number(this.state.data.subscriptions.pending || 0)))},
-            {name: "Participation", value: 58},
-            {name: "Autres", value: 32},
-        ];
+        return this.state.data.members.categories || [];
     }
 
 

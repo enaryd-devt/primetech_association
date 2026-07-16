@@ -1308,32 +1308,6 @@
                                             }"
                                             readonly="1"/>
 
-
-                                            <!-- ===================================================== -->
-                                            <!-- SITUATION DE LA COTISATION                            -->
-                                            <!-- ===================================================== -->
-
-                                            <field
-                                                name="amount_due"
-                                                string="Montant dû"
-                                                widget="monetary"
-                                                options="{'currency_field': 'currency_id'}"
-                                                readonly="1"/>
-
-                                            <field
-                                                name="amount_paid"
-                                                string="Déjà payé"
-                                                widget="monetary"
-                                                options="{'currency_field': 'currency_id'}"
-                                                readonly="1"/>
-
-                                            <field
-                                                name="balance"
-                                                string="Reste"
-                                                widget="monetary"
-                                                options="{'currency_field': 'currency_id'}"
-                                                readonly="1"/>
-
                                             <field
                                                 name="member_account_balance"
                                                 string="Solde membre"
@@ -2194,7 +2168,6 @@
                                 }">
 
                                 <list
-                                    editable="bottom"
                                     decoration-success="result == 'adopted'"
                                     decoration-danger="result == 'rejected'"
                                     decoration-muted="result == 'pending'">
