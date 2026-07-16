@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+
+    <menuitem
+        id="menu_configuration_root"
+        name="Configuration"
+        parent="menu_association_root"
+        sequence="900"
+        groups="primetech_association.group_association_admin"/>
+
+    <menuitem
+        id="menu_association_settings"
+        name="Paramètres"
+        parent="menu_configuration_root"
+        action="action_association_settings"
+        sequence="10"/>
+
+</odoo>

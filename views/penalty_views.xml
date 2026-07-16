@@ -1,0 +1,799 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<odoo>
+
+    <!-- ========================================================= -->
+    <!-- VUE LISTE                                                 -->
+    <!-- ========================================================= -->
+
+    <record
+        id="view_association_penalty_list"
+        model="ir.ui.view">
+
+        <field name="name">association.penalty.list</field>
+
+        <field name="model">association.penalty</field>
+
+        <field name="arch" type="xml">
+
+            <list
+                string="Sanctions"
+                decoration-muted="state == 'draft'"
+                decoration-info="state == 'validated'"
+                decoration-warning="state == 'executed'"
+                decoration-success="state == 'lifted'"
+                decoration-danger="state == 'cancelled'">
+
+                <field name="name"/>
+
+                <field name="meeting_date"/>
+
+                <field name="member_id"/>
+
+                <field name="incident_type"/>
+
+                <field
+                    name="severity"
+                    widget="badge"
+                    decoration-muted="severity == 'minor'"
+                    decoration-success="severity == 'low'"
+                    decoration-info="severity == 'medium'"
+                    decoration-warning="severity == 'serious'"
+                    decoration-danger="severity == 'critical'"
+                />
+
+                <field name="penalty_type"/>
+
+                <field
+                    name="amount"
+                    optional="show"
+                />
+
+                <field
+                    name="amount_remaining"
+                    optional="show"
+                />
+
+                <field
+                    name="corrective_deadline"
+                    optional="show"
+                />
+
+                <field
+                    name="state"
+                    widget="badge"
+                    decoration-muted="state == 'draft'"
+                    decoration-info="state == 'validated'"
+                    decoration-warning="state == 'executed'"
+                    decoration-success="state == 'lifted'"
+                    decoration-danger="state == 'cancelled'"
+                />
+
+            </list>
+
+        </field>
+
+    </record>
+
+
+    <!-- ========================================================= -->
+    <!-- VUE FORMULAIRE                                            -->
+    <!-- ========================================================= -->
+
+    <record
+        id="view_association_penalty_form"
+        model="ir.ui.view">
+
+        <field name="name">association.penalty.form</field>
+
+        <field name="model">association.penalty</field>
+
+        <field name="arch" type="xml">
+
+            <form string="Sanction disciplinaire">
+
+                <!-- ================================================= -->
+                <!-- ACTIONS                                           -->
+                <!-- ================================================= -->
+
+                <header>
+
+                    <button
+                        name="action_validate"
+                        type="object"
+                        string="Valider la sanction"
+                        icon="fa-check"
+                        class="btn-primary"
+                        invisible="state != 'draft'"
+                        confirm="Confirmez-vous la validation de cette sanction ?"
+                    />
+
+                    <button
+                        name="action_cancel"
+                        type="object"
+                        string="Annuler"
+                        icon="fa-times"
+                        invisible="state not in ('draft', 'validated')"
+                        confirm="Confirmez-vous l'annulation de cette sanction ?"
+                    />
+
+                    <button
+                        name="action_execute"
+                        type="object"
+                        string="Marquer exécutée"
+                        icon="fa-check-circle"
+                        invisible="state != 'validated'"
+                    />
+
+                    <button
+                        name="action_complete_corrective_action"
+                        type="object"
+                        string="Action accomplie"
+                        icon="fa-tasks"
+                        class="btn-primary"
+                        invisible="
+                            state not in ('validated', 'executed')
+                            or not corrective_action_required
+                            or corrective_action_done
+                        "
+                        confirm="Confirmez-vous que le membre a accompli l'action demandée ?"
+                    />
+
+                    <button
+                        name="action_lift"
+                        type="object"
+                        string="Lever la sanction"
+                        icon="fa-unlock"
+                        class="btn-primary"
+                        invisible="
+                            state not in ('validated', 'executed')
+                        "
+                        confirm="Confirmez-vous la levée de cette sanction ?"
+                    />
+
+                    <field
+                        name="state"
+                        widget="statusbar"
+                        statusbar_visible="draft,validated,executed,lifted"
+                    />
+
+                </header>
+
+
+                <sheet>
+
+                    <!-- ================================================= -->
+                    <!-- TITRE                                             -->
+                    <!-- ================================================= -->
+
+                    <div class="oe_title">
+
+                        <label for="name"/>
+
+                        <h1>
+
+                            <field
+                                name="name"
+                                readonly="1"
+                            />
+
+                        </h1>
+
+                        <h2>
+
+                            <field
+                                name="member_id"
+                                readonly="state != 'draft'"
+                                placeholder="Membre concerné..."
+                            />
+
+                        </h2>
+
+                    </div>
+
+
+                    <!-- ================================================= -->
+                    <!-- ALERTE SANCTION ACTIVE                            -->
+                    <!-- ================================================= -->
+
+                    <div
+                        class="alert alert-warning border-0 shadow-sm"
+                        role="alert"
+                        invisible="state not in ('validated', 'executed')">
+
+                        <strong>
+
+                            <i
+                                class="fa fa-exclamation-triangle me-2"
+                                title="Sanction active"/>
+
+                            Sanction active
+
+                        </strong>
+
+                        <div class="small mt-1">
+
+                            Cette sanction fait actuellement
+                            l'objet d'un suivi.
+
+                        </div>
+
+                    </div>
+
+
+                    <!-- ================================================= -->
+                    <!-- SANCTION LEVÉE                                    -->
+                    <!-- ================================================= -->
+
+                    <div
+                        class="alert alert-success border-0 shadow-sm"
+                        role="alert"
+                        invisible="state != 'lifted'">
+
+                        <strong>
+
+                            <i
+                                class="fa fa-unlock me-2"
+                                title="Sanction levée"/>
+
+                            Sanction levée
+
+                        </strong>
+
+                        <div class="small mt-1">
+
+                            Cette sanction a été clôturée
+                            après régularisation ou accomplissement
+                            de l'action demandée.
+
+                        </div>
+
+                    </div>
+
+
+                    <!-- ================================================= -->
+                    <!-- INFORMATIONS GÉNÉRALES                            -->
+                    <!-- ================================================= -->
+
+                    <group>
+
+                        <group string="Réunion d'origine">
+
+                            <field
+                                name="meeting_id"
+                                readonly="state != 'draft'"
+                            />
+
+                            <field
+                                name="meeting_date"
+                                readonly="1"
+                            />
+
+                            <field
+                                name="meeting_type"
+                                readonly="1"
+                            />
+
+                        </group>
+
+                        <group string="Membre concerné">
+
+                            <field
+                                name="member_code"
+                                readonly="1"
+                            />
+
+                            <field
+                                name="category_id"
+                                readonly="1"
+                            />
+
+                            <field
+                                name="function_id"
+                                readonly="1"
+                            />
+
+                        </group>
+
+                    </group>
+
+
+                    <!-- ================================================= -->
+                    <!-- ONGLETS                                           -->
+                    <!-- ================================================= -->
+
+                    <notebook>
+
+
+                        <!-- ============================================= -->
+                        <!-- INCIDENT                                      -->
+                        <!-- ============================================= -->
+
+                        <page
+                            string="Incident"
+                            name="incident">
+
+                            <group>
+
+                                <group string="Qualification">
+
+                                    <field
+                                        name="incident_date"
+                                        readonly="state != 'draft'"
+                                    />
+
+                                    <field
+                                        name="incident_type"
+                                        readonly="state != 'draft'"
+                                    />
+
+                                    <field
+                                        name="severity"
+                                        readonly="state != 'draft'"
+                                    />
+
+                                </group>
+
+                                <group string="Procès-verbal">
+
+                                    <field
+                                        name="include_in_minutes"
+                                        readonly="state != 'draft'"
+                                    />
+
+                                </group>
+
+                            </group>
+
+                            <group string="Description précise des faits">
+
+                                <field
+                                    name="incident_description"
+                                    nolabel="1"
+                                    readonly="state != 'draft'"
+                                    placeholder="Décrivez précisément les faits constatés..."
+                                />
+
+                            </group>
+
+                            <group
+                                string="Mention spécifique au procès-verbal"
+                                invisible="not include_in_minutes">
+
+                                <field
+                                    name="minutes_note"
+                                    nolabel="1"
+                                    readonly="state != 'draft'"
+                                    placeholder="Mention particulière à reprendre dans le procès-verbal..."
+                                />
+
+                            </group>
+
+                        </page>
+
+
+                        <!-- ============================================= -->
+                        <!-- DÉCISION                                      -->
+                        <!-- ============================================= -->
+
+                        <page
+                            string="Décision disciplinaire"
+                            name="decision">
+
+                            <group>
+
+                                <group string="Sanction décidée">
+
+                                    <field
+                                        name="penalty_type"
+                                        readonly="state != 'draft'"
+                                    />
+
+                                    <field
+                                        name="amount"
+                                        invisible="penalty_type != 'fine'"
+                                        readonly="state != 'draft'"
+                                    />
+
+                                    <field
+                                        name="amount_paid"
+                                        invisible="penalty_type != 'fine'"
+                                        readonly="1"
+                                    />
+
+                                    <field
+                                        name="amount_remaining"
+                                        invisible="penalty_type != 'fine'"
+                                        readonly="1"
+                                    />
+
+                                    <field
+                                        name="suspension_days"
+                                        invisible="penalty_type != 'suspension'"
+                                        readonly="state != 'draft'"
+                                    />
+
+                                </group>
+
+                                <group string="Validation">
+
+                                    <field
+                                        name="validated_by"
+                                        readonly="1"
+                                    />
+
+                                    <field
+                                        name="validation_date"
+                                        readonly="1"
+                                    />
+
+                                </group>
+
+                            </group>
+
+                            <group string="Décision prise">
+
+                                <field
+                                    name="penalty_description"
+                                    nolabel="1"
+                                    readonly="state != 'draft'"
+                                    placeholder="Décrivez la décision disciplinaire prise..."
+                                />
+
+                            </group>
+
+                        </page>
+
+
+                        <!-- ============================================= -->
+                        <!-- SUIVI                                         -->
+                        <!-- ============================================= -->
+
+                        <page
+                            string="Suivi de la sanction"
+                            name="followup">
+
+                            <div
+                                class="alert alert-info border-0"
+                                role="alert"
+                                invisible="state == 'draft'">
+
+                                <strong>
+                                    Suivi dans le temps
+                                </strong>
+
+                                <div class="small mt-1">
+
+                                    La clôture de la réunion
+                                    n'interrompt pas le suivi de cette sanction.
+
+                                </div>
+
+                            </div>
+
+                            <group>
+
+                                <group string="Condition de levée">
+
+                                    <field
+                                        name="corrective_action_required"
+                                        readonly="state != 'draft'"
+                                    />
+
+                                    <field
+                                        name="corrective_action"
+                                        invisible="not corrective_action_required"
+                                        readonly="state != 'draft'"
+                                        placeholder="Action que le membre doit accomplir..."
+                                    />
+
+                                    <field
+                                        name="corrective_deadline"
+                                        invisible="not corrective_action_required"
+                                        readonly="state != 'draft'"
+                                    />
+
+                                </group>
+
+                                <group string="État de l'action">
+
+                                    <field
+                                        name="corrective_action_done"
+                                        invisible="not corrective_action_required"
+                                        readonly="1"
+                                    />
+
+                                    <field
+                                        name="corrective_action_date"
+                                        invisible="not corrective_action_done"
+                                        readonly="1"
+                                    />
+
+                                </group>
+
+                            </group>
+
+                            <group
+                                string="Compte rendu de l'action accomplie"
+                                invisible="not corrective_action_required">
+
+                                <field
+                                    name="corrective_action_note"
+                                    nolabel="1"
+                                    readonly="state in ('lifted', 'cancelled')"
+                                    placeholder="Décrivez les éléments constatés lors de la régularisation..."
+                                />
+
+                            </group>
+
+                        </page>
+
+
+                        <!-- ============================================= -->
+                        <!-- LEVÉE                                         -->
+                        <!-- ============================================= -->
+
+                        <page
+                            string="Levée de sanction"
+                            name="lifting">
+
+                            <div
+                                class="alert alert-info border-0"
+                                role="alert"
+                                invisible="state not in ('validated', 'executed')">
+
+                                <strong>
+                                    Décision de levée
+                                </strong>
+
+                                <div class="small mt-1">
+
+                                    Renseignez le motif de levée avant
+                                    de cliquer sur « Lever la sanction ».
+
+                                </div>
+
+                            </div>
+
+                            <group>
+
+                                <group string="Décision">
+
+                                    <field
+                                        name="lift_reason"
+                                        readonly="state == 'lifted'"
+                                        placeholder="Précisez le motif justifiant la levée..."
+                                    />
+
+                                </group>
+
+                                <group string="Informations de levée">
+
+                                    <field
+                                        name="lifted_by"
+                                        readonly="1"
+                                        invisible="state != 'lifted'"
+                                    />
+
+                                    <field
+                                        name="lifted_date"
+                                        readonly="1"
+                                        invisible="state != 'lifted'"
+                                    />
+
+                                </group>
+
+                            </group>
+
+                        </page>
+
+
+                        <!-- ============================================= -->
+                        <!-- ANNULATION                                    -->
+                        <!-- ============================================= -->
+
+                        <page
+                            string="Annulation"
+                            name="cancellation">
+
+                            <group string="Motif d'annulation">
+
+                                <field
+                                    name="cancellation_reason"
+                                    nolabel="1"
+                                    readonly="state == 'cancelled'"
+                                    placeholder="Précisez pourquoi la décision disciplinaire doit être annulée..."
+                                />
+
+                            </group>
+
+                            <group
+                                invisible="state != 'cancelled'">
+
+                                <group>
+
+                                    <field
+                                        name="cancelled_by"
+                                        readonly="1"
+                                    />
+
+                                </group>
+
+                                <group>
+
+                                    <field
+                                        name="cancellation_date"
+                                        readonly="1"
+                                    />
+
+                                </group>
+
+                            </group>
+
+                        </page>
+
+
+                        <!-- ============================================= -->
+                        <!-- OBSERVATIONS                                  -->
+                        <!-- ============================================= -->
+
+                        <page
+                            string="Observations"
+                            name="notes">
+
+                            <field
+                                name="note"
+                                nolabel="1"
+                                placeholder="Observations internes sur le suivi de la sanction..."
+                            />
+
+                        </page>
+
+                    </notebook>
+
+                </sheet>
+
+
+                <!-- ================================================= -->
+                <!-- CHATTER                                           -->
+                <!-- ================================================= -->
+
+                <chatter/>
+
+            </form>
+
+        </field>
+
+    </record>
+
+
+    <!-- ========================================================= -->
+    <!-- RECHERCHE                                                 -->
+    <!-- ========================================================= -->
+
+    <record
+        id="view_association_penalty_search"
+        model="ir.ui.view">
+
+        <field name="name">association.penalty.search</field>
+
+        <field name="model">association.penalty</field>
+
+        <field name="arch" type="xml">
+
+            <search string="Rechercher une sanction">
+
+                <field name="name"/>
+
+                <field name="member_id"/>
+
+                <field name="meeting_id"/>
+
+                <field name="incident_type"/>
+
+                <field name="penalty_type"/>
+
+                <separator/>
+
+                <filter
+                    name="active_penalties"
+                    string="Sanctions actives"
+                    domain="[('state', 'in', ('validated', 'executed'))]"
+                />
+
+                <filter
+                    name="draft_penalties"
+                    string="À décider"
+                    domain="[('state', '=', 'draft')]"
+                />
+
+                <filter
+                    name="lifted_penalties"
+                    string="Sanctions levées"
+                    domain="[('state', '=', 'lifted')]"
+                />
+
+                <filter
+                    name="financial_penalties"
+                    string="Sanctions financières"
+                    domain="[('penalty_type', '=', 'fine')]"
+                />
+
+                <separator/>
+
+                <group expand="0" string="Regrouper par">
+
+                    <filter
+                        name="group_member"
+                        string="Membre"
+                        context="{'group_by': 'member_id'}"
+                    />
+
+                    <filter
+                        name="group_state"
+                        string="Statut"
+                        context="{'group_by': 'state'}"
+                    />
+
+                    <filter
+                        name="group_severity"
+                        string="Gravité"
+                        context="{'group_by': 'severity'}"
+                    />
+
+                    <filter
+                        name="group_meeting"
+                        string="Réunion"
+                        context="{'group_by': 'meeting_id'}"
+                    />
+
+                </group>
+
+            </search>
+
+        </field>
+
+    </record>
+
+
+    <!-- ========================================================= -->
+    <!-- ACTION                                                    -->
+    <!-- ========================================================= -->
+
+    <record
+        id="action_penalty"
+        model="ir.actions.act_window">
+
+        <field name="name">Sanctions</field>
+
+        <field name="res_model">association.penalty</field>
+
+        <field name="view_mode">list,form</field>
+
+        <field
+            name="search_view_id"
+            ref="view_association_penalty_search"
+        />
+
+        <field name="context">
+            {
+                'search_default_active_penalties': 1
+            }
+        </field>
+
+        <field name="help" type="html">
+
+            <p class="o_view_nocontent_smiling_face">
+                Aucune sanction active
+            </p>
+
+            <p>
+                Les sanctions décidées pendant les réunions
+                seront suivies ici jusqu'à leur levée.
+            </p>
+
+        </field>
+
+    </record>
+
+</odoo>

@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- ========================================================== -->
+    <!-- MODULE CATEGORY                                             -->
+    <!-- ========================================================== -->
+
+    <record id="module_category_association" model="ir.module.category">
+        <field name="name">Association Management</field>
+        <field name="description">
+            Manage associations, members, meetings and finances.
+        </field>
+        <field name="sequence">30</field>
+    </record>
+
+    <!-- ========================================================== -->
+    <!-- USER (DOIT ÊTRE CRÉÉ EN PREMIER)                            -->
+    <!-- ========================================================== -->
+
+    <record id="group_association_user" model="res.groups">
+        <field name="name">Association User</field>
+        <field name="category_id" ref="module_category_association"/>
+    </record>
+
+    <!-- ========================================================== -->
+    <!-- MANAGER                                                     -->
+    <!-- ========================================================== -->
+
+    <record id="group_association_manager" model="res.groups">
+        <field name="name">Association Manager</field>
+        <field name="category_id" ref="module_category_association"/>
+        <field name="implied_ids"
+               eval="[(4, ref('group_association_user'))]"/>
+    </record>
+
+    <!-- ========================================================== -->
+    <!-- ADMIN                                                       -->
+    <!-- ========================================================== -->
+
+    <record id="group_association_admin" model="res.groups">
+        <field name="name">Association Administrator</field>
+        <field name="category_id" ref="module_category_association"/>
+        <field name="implied_ids"
+               eval="[(4, ref('group_association_manager'))]"/>
+    </record>
+
+    <!-- ========================================================= -->
+    <!-- RÈGLES MULTI-FILIALES : RÉUNIONS                         -->
+    <!-- ========================================================= -->
+
+    <record id="rule_association_meeting_company" model="ir.rule">
+        <field name="name">Réunions - Filiales autorisées</field>
+        <field name="model_id" ref="model_association_meeting"/>
+        <field name="domain_force">
+            [('company_id', 'in', company_ids)]
+        </field>
+        <field name="groups" eval="[
+            (4, ref('primetech_association.group_association_user')),
+            (4, ref('primetech_association.group_association_manager')),
+            (4, ref('primetech_association.group_association_admin'))
+        ]"/>
+    </record>
+
+
+    <!-- ========================================================= -->
+    <!-- RÈGLES MULTI-FILIALES : PRÉSENCES                         -->
+    <!-- ========================================================= -->
+
+    <record id="rule_association_attendance_company" model="ir.rule">
+        <field name="name">Présences - Filiales autorisées</field>
+        <field name="model_id" ref="model_association_attendance"/>
+        <field name="domain_force">
+            [('company_id', 'in', company_ids)]
+        </field>
+        <field name="groups" eval="[
+            (4, ref('primetech_association.group_association_user')),
+            (4, ref('primetech_association.group_association_manager')),
+            (4, ref('primetech_association.group_association_admin'))
+        ]"/>
+    </record>
+
+
+    <!-- ========================================================= -->
+    <!-- RÈGLES MULTI-FILIALES : RÉSOLUTIONS                       -->
+    <!-- ========================================================= -->
+
+    <record id="rule_association_meeting_resolution_company" model="ir.rule">
+        <field name="name">Résolutions - Filiales autorisées</field>
+        <field name="model_id" ref="model_association_meeting_resolution"/>
+        <field name="domain_force">
+            [('company_id', 'in', company_ids)]
+        </field>
+        <field name="groups" eval="[
+            (4, ref('primetech_association.group_association_user')),
+            (4, ref('primetech_association.group_association_manager')),
+            (4, ref('primetech_association.group_association_admin'))
+        ]"/>
+    </record>
+
+</odoo>
