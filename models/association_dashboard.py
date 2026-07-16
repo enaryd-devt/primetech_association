@@ -72,6 +72,12 @@ class AssociationDashboard(models.AbstractModel):
             limit=1,
         )
 
+        upcoming_meetings = Meeting.search(
+            upcoming_meeting_domain,
+            order="meeting_date asc, id asc",
+            limit=4,
+        )
+
         # ======================================================
         # DERNIÈRE RÉUNION / PRÉSENCES
         # ======================================================
@@ -319,11 +325,52 @@ class AssociationDashboard(models.AbstractModel):
                     "in",
                     [
                         "draft",
-                        "pending",
+                        "validated",
+                        "executed",
                     ],
                 ),
             ]
         )
+
+        active_penalties = Penalty.search(
+            penalty_domain + [
+                ("state", "in", ["validated", "executed"]),
+            ]
+        )
+        penalty_amount_remaining = sum(
+            active_penalties.mapped("amount_remaining")
+        )
+
+        recent_penalties = Penalty.search(
+            penalty_domain,
+            order="incident_date desc, id desc",
+            limit=5,
+        )
+        penalty_state_labels = dict(
+            Penalty._fields["state"]._description_selection(self.env)
+        )
+        penalty_type_labels = dict(
+            Penalty._fields["penalty_type"]._description_selection(self.env)
+        )
+        recent_penalty_values = [
+            {
+                "id": penalty.id,
+                "name": penalty.name or "",
+                "member": penalty.member_id.display_name or "",
+                "type": penalty_type_labels.get(
+                    penalty.penalty_type, penalty.penalty_type or ""
+                ),
+                "state": penalty_state_labels.get(
+                    penalty.state, penalty.state or ""
+                ),
+                "state_code": penalty.state or "",
+                "amount_remaining": penalty.amount_remaining or 0.0,
+                "date": penalty.incident_date.strftime("%d/%m/%Y")
+                if penalty.incident_date
+                else "",
+            }
+            for penalty in recent_penalties
+        ]
 
         # ======================================================
         # DERNIERS ENCAISSEMENTS
@@ -371,6 +418,39 @@ class AssociationDashboard(models.AbstractModel):
                 }
             )
 
+        recent_members = Member.search(
+            member_domain,
+            order="join_date desc, id desc",
+            limit=5,
+        )
+        recent_member_values = [
+            {
+                "id": member.id,
+                "name": member.display_name or "",
+                "state": dict(Member._fields["state"]._description_selection(self.env)).get(
+                    member.state, member.state or ""
+                ),
+                "date": member.join_date.strftime("%d/%m/%Y")
+                if member.join_date
+                else "",
+            }
+            for member in recent_members
+        ]
+
+        upcoming_meeting_values = [
+            {
+                "id": meeting.id,
+                "title": meeting.title or meeting.name or "",
+                "date": meeting.meeting_date.strftime("%d/%m/%Y")
+                if meeting.meeting_date
+                else "",
+                "time": dict(Meeting._fields["start_time"]._description_selection(self.env)).get(
+                    meeting.start_time, meeting.start_time or ""
+                ),
+            }
+            for meeting in upcoming_meetings
+        ]
+
         # ======================================================
         # PROCHAINE RÉUNION
         # ======================================================
@@ -414,6 +494,7 @@ class AssociationDashboard(models.AbstractModel):
         # ======================================================
 
         return {
+            "user_name": self.env.user.name,
             "company": {
                 "id":
                     company.id,
@@ -465,10 +546,20 @@ class AssociationDashboard(models.AbstractModel):
 
                 "pending":
                     pending_penalty_count,
+
+                "active": len(active_penalties),
+
+                "amount_remaining": penalty_amount_remaining,
+
+                "recent": recent_penalty_values,
             },
 
             "recent_payments":
                 recent_payment_values,
+
+            "recent_members": recent_member_values,
+
+            "upcoming_meetings": upcoming_meeting_values,
 
             "next_meeting":
                 next_meeting_value,
