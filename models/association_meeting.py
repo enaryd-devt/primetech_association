@@ -295,9 +295,8 @@ class AssociationMeeting(models.Model):
     )
 
     description = fields.Html(
-        string="Texte de la résolution",
-        required=True,
-      
+        string="Description de la réunion",
+        help="Informations générales complémentaires sur la réunion.",
     )
 
     # ==========================================================

@@ -47,7 +47,6 @@ from . import association_dashboard
 
 from . import res_config_settings
 
-from . import association_fund
 from . import association_fund_transaction
 from . import association_member_account
 from . import association_member_account_transaction
