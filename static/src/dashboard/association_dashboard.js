@@ -37,7 +37,7 @@ export class AssociationDashboard extends Component {
                 subscriptions: {},
                 payments: {},
                 treasury: {},
-                penalties: {},
+                penalties: {recent: []},
                 recent_payments: [],
                 next_meeting: false,
                 upcoming_meetings: [],
@@ -123,7 +123,7 @@ export class AssociationDashboard extends Component {
             {label: "Cotisations collectées", value: this.formatAmount(data.payments.total), currency: true, icon: "fa-handshake-o", color: "orange", note: "Paiements confirmés"},
             {label: "Trésorerie", value: this.formatAmount(data.treasury.balance), currency: true, icon: "fa-credit-card", color: "blue", note: "Solde disponible"},
             {label: "Événements", value: this.formatAmount(data.meetings.upcoming), icon: "fa-calendar", color: "purple", note: "À venir"},
-            {label: "Cotisations en attente", value: this.formatAmount(data.subscriptions.pending), icon: "fa-check-square-o", color: "red", note: "À régulariser", negative: true},
+            {label: "Pénalités à traiter", value: this.formatAmount(data.penalties.pending), icon: "fa-gavel", color: "red", note: "À régulariser", negative: true},
         ];
     }
 
@@ -208,6 +208,20 @@ export class AssociationDashboard extends Component {
             "primetech_association.action_penalty"
         );
 
+    }
+
+    openPenalty(penaltyId) {
+        if (!penaltyId) {
+            return;
+        }
+        return this.action.doAction({
+            type: "ir.actions.act_window",
+            name: "Sanction disciplinaire",
+            res_model: "association.penalty",
+            res_id: penaltyId,
+            views: [[false, "form"]],
+            target: "current",
+        });
     }
 
 
