@@ -72,6 +72,12 @@ class AssociationDashboard(models.AbstractModel):
             limit=1,
         )
 
+        upcoming_meetings = Meeting.search(
+            upcoming_meeting_domain,
+            order="meeting_date asc, id asc",
+            limit=4,
+        )
+
         # ======================================================
         # DERNIÈRE RÉUNION / PRÉSENCES
         # ======================================================
@@ -371,6 +377,39 @@ class AssociationDashboard(models.AbstractModel):
                 }
             )
 
+        recent_members = Member.search(
+            member_domain,
+            order="join_date desc, id desc",
+            limit=5,
+        )
+        recent_member_values = [
+            {
+                "id": member.id,
+                "name": member.display_name or "",
+                "state": dict(Member._fields["state"]._description_selection(self.env)).get(
+                    member.state, member.state or ""
+                ),
+                "date": member.join_date.strftime("%d/%m/%Y")
+                if member.join_date
+                else "",
+            }
+            for member in recent_members
+        ]
+
+        upcoming_meeting_values = [
+            {
+                "id": meeting.id,
+                "title": meeting.title or meeting.name or "",
+                "date": meeting.meeting_date.strftime("%d/%m/%Y")
+                if meeting.meeting_date
+                else "",
+                "time": dict(Meeting._fields["start_time"]._description_selection(self.env)).get(
+                    meeting.start_time, meeting.start_time or ""
+                ),
+            }
+            for meeting in upcoming_meetings
+        ]
+
         # ======================================================
         # PROCHAINE RÉUNION
         # ======================================================
@@ -414,6 +453,7 @@ class AssociationDashboard(models.AbstractModel):
         # ======================================================
 
         return {
+            "user_name": self.env.user.name,
             "company": {
                 "id":
                     company.id,
@@ -469,6 +509,10 @@ class AssociationDashboard(models.AbstractModel):
 
             "recent_payments":
                 recent_payment_values,
+
+            "recent_members": recent_member_values,
+
+            "upcoming_meetings": upcoming_meeting_values,
 
             "next_meeting":
                 next_meeting_value,
