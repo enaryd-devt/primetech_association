@@ -176,6 +176,19 @@ class AssociationSubscriptionPeriod(models.Model):
         currency_field="currency_id",
     )
 
+    settled_amount = fields.Monetary(
+        string="Montant versé en trésorerie",
+        currency_field="currency_id",
+        default=0.0,
+        readonly=True,
+        copy=False,
+        tracking=True,
+        help=(
+            "Montant déjà sorti de la caisse temporaire et versé "
+            "sur un compte financier."
+        ),
+    )
+
     available_amount = fields.Monetary(
         string="Cagnotte disponible",
         compute="_compute_pot_statistics",
@@ -327,6 +340,7 @@ class AssociationSubscriptionPeriod(models.Model):
         "subscription_id.line_ids.payment_state",
         "allocation_ids.amount",
         "allocation_ids.state",
+        "settled_amount",
     )
     def _compute_pot_statistics(self):
 
@@ -351,7 +365,8 @@ class AssociationSubscriptionPeriod(models.Model):
             period.collected_amount = collected_amount
             period.allocated_amount = allocated_amount
             period.available_amount = max(
-                collected_amount - allocated_amount,
+                collected_amount - allocated_amount
+                - (period.settled_amount or 0.0),
                 0.0,
             )
 
