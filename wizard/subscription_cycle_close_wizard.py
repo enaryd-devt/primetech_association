@@ -315,9 +315,17 @@ class AssociationSubscriptionCycleCloseWizard(
                 )
             )
 
-        transaction = self.env[
-            "association.fund.transaction"
-        ].create({
+        FundTransaction = self.env["association.fund.transaction"]
+        transaction = FundTransaction.search([
+            ("origin_model", "=", "association.subscription.period"),
+            ("origin_res_id", "=", self.period_id.id),
+            ("transaction_type", "=", "in"),
+            ("state", "!=", "cancelled"),
+        ], limit=1)
+        if transaction:
+            return transaction
+
+        transaction = FundTransaction.create({
             "company_id":
                 self.company_id.id,
 
@@ -353,6 +361,10 @@ class AssociationSubscriptionCycleCloseWizard(
         })
 
         transaction.action_validate()
+
+        self.period_id.settled_amount = (
+            self.period_id.settled_amount or 0.0
+        ) + amount
 
         return transaction
     

@@ -295,9 +295,8 @@ class AssociationMeeting(models.Model):
     )
 
     description = fields.Html(
-        string="Texte de la résolution",
-        required=True,
-      
+        string="Description de la réunion",
+        help="Informations générales complémentaires sur la réunion.",
     )
 
     # ==========================================================
@@ -458,6 +457,32 @@ class AssociationMeeting(models.Model):
         compute="_compute_pot_statistics",
     )
 
+    pot_settlement_state = fields.Selection(
+        [("open", "Caisse temporaire ouverte"),
+         ("settled", "Caisse soldée")],
+        string="Règlement de la caisse",
+        default="open",
+        required=True,
+        copy=False,
+        tracking=True,
+    )
+
+    pot_settlement_fund_id = fields.Many2one(
+        "association.fund",
+        string="Compte de versement final",
+        domain="[('company_id', '=', company_id), ('active', '=', True)]",
+        copy=False,
+        tracking=True,
+    )
+
+    pot_settlement_transaction_id = fields.Many2one(
+        "association.fund.transaction",
+        string="Mouvement de versement final",
+        readonly=True,
+        copy=False,
+        ondelete="restrict",
+    )
+
     allocation_ids = fields.One2many(
         comodel_name="association.subscription.allocation",
         related="subscription_period_id.allocation_ids",
@@ -576,14 +601,18 @@ class AssociationMeeting(models.Model):
     # ==========================================================
 
     @api.depends(
-        "subscription_period_id",
-        "subscription_period_id.collected_amount",
-        "subscription_period_id.allocated_amount",
-        "subscription_period_id.available_amount",
+        "collection_ids.state",
+        "collection_ids.payment_id.amount",
+        "collection_ids.payment_id.payment_source",
+        "collection_ids.processed_surplus_amount",
+        "collection_ids.surplus_action",
+        "collection_ids.payment_id.processed_surplus_amount",
+        "collection_ids.payment_id.surplus_action",
         "allocation_ids",
         "allocation_ids.amount",
         "allocation_ids.beneficiary_id",
         "allocation_ids.state",
+        "pot_settlement_state",
     )
     def _compute_pot_statistics(self):
 
@@ -594,40 +623,52 @@ class AssociationMeeting(models.Model):
             meeting.pot_available_amount = 0.0
             meeting.pot_beneficiary_count = 0
 
-            period = meeting.subscription_period_id
-
-            if not period:
-                continue
-
-            # ==================================================
-            # MONTANTS DU CYCLE COURANT
-            # ==================================================
-
-            meeting.pot_collected_amount = (
-                period.collected_amount or 0.0
-            )
-
-            meeting.pot_allocated_amount = (
-                period.allocated_amount or 0.0
-            )
-
-            meeting.pot_available_amount = (
-                period.available_amount or 0.0
-            )
-
-            # ==================================================
-            # BÉNÉFICIAIRES DU CYCLE COURANT
-            # ==================================================
-
             allocations = meeting.allocation_ids.filtered(
-                lambda allocation:
-                    allocation.state
-                    in (
-                        "confirmed",
-                        "paid",
-                    )
+                lambda allocation: allocation.meeting_id == meeting
+                and allocation.state in ("confirmed", "paid")
                     and allocation.beneficiary_id
             )
+
+            cash_collections = meeting.collection_ids.filtered(
+                lambda collection: collection.state == "paid"
+                and collection.payment_id
+                and collection.payment_id.payment_source == "meeting_cash"
+            )
+            collected_amount = sum(
+                cash_collections.mapped("payment_id.amount")
+            ) + sum(
+                cash_collections.filtered(
+                    lambda collection:
+                        collection.surplus_action == "credit_account"
+                ).mapped("processed_surplus_amount")
+            )
+
+            other_meeting_payments = self.env[
+                "association.payment"
+            ].search([
+                ("meeting_id", "=", meeting.id),
+                ("payment_source", "=", "meeting_cash"),
+                ("state", "=", "confirmed"),
+                ("id", "not in", cash_collections.mapped("payment_id").ids),
+            ])
+            collected_amount += sum(
+                payment.amount
+                - (
+                    payment.processed_surplus_amount
+                    if payment.surplus_action == "refund"
+                    else 0.0
+                )
+                for payment in other_meeting_payments
+            )
+            allocated_amount = sum(allocations.mapped("amount"))
+
+            meeting.pot_collected_amount = collected_amount
+            meeting.pot_allocated_amount = allocated_amount
+            meeting.pot_available_amount = max(
+                collected_amount - allocated_amount, 0.0
+            )
+            if meeting.pot_settlement_state == "settled":
+                meeting.pot_available_amount = 0.0
 
             meeting.pot_beneficiary_count = len(
                 allocations.mapped(
@@ -1046,6 +1087,14 @@ class AssociationMeeting(models.Model):
     def action_allocate_subscription_pot(self):
         self.ensure_one()
 
+        if self.pot_settlement_state == "settled":
+            raise ValidationError(
+                _(
+                    "La caisse temporaire est déjà soldée. "
+                    "Aucune nouvelle attribution n'est possible."
+                )
+            )
+
         period = self.subscription_period_id
 
         if not period:
@@ -1083,7 +1132,7 @@ class AssociationMeeting(models.Model):
                 )
             )
 
-        available_amount = period.available_amount or 0.0
+        available_amount = self.pot_available_amount or 0.0
 
         if amount > available_amount:
             raise ValidationError(
@@ -1204,6 +1253,100 @@ class AssociationMeeting(models.Model):
             "type": "ir.actions.client",
             "tag": "soft_reload",
         }
+
+    def action_settle_meeting_pot(self):
+        """Verser une seule fois le reliquat de la caisse temporaire."""
+        Transaction = self.env["association.fund.transaction"]
+
+        for meeting in self:
+            if meeting.pot_settlement_state == "settled":
+                raise UserError(
+                    _("La caisse temporaire de cette réunion est déjà soldée.")
+                )
+            if not meeting.subscription_period_id:
+                raise ValidationError(
+                    _("Aucun cycle de cotisation n'est lié à la réunion.")
+                )
+
+            pending = meeting.collection_ids.filtered(
+                lambda line: line.state == "pending"
+                and (line.amount or 0.0) > 0
+            )
+            if pending:
+                raise ValidationError(
+                    _(
+                        "Traitez ou annulez tous les encaissements saisis "
+                        "avant de solder la caisse."
+                    )
+                )
+
+            unpaid = meeting.allocation_ids.filtered(
+                lambda allocation: allocation.meeting_id == meeting
+                and allocation.state == "confirmed"
+            )
+            if unpaid:
+                raise ValidationError(
+                    _(
+                        "Marquez toutes les attributions confirmées comme "
+                        "remises avant de solder la caisse."
+                    )
+                )
+
+            amount = meeting.pot_available_amount or 0.0
+            transaction = False
+            if amount > 0:
+                fund = (
+                    meeting.pot_settlement_fund_id
+                    or meeting.subscription_id.receipt_account_id
+                )
+                if not fund:
+                    raise ValidationError(
+                        _("Sélectionnez le compte de versement final.")
+                    )
+
+                transaction = Transaction.search([
+                    ("origin_model", "=", meeting._name),
+                    ("origin_res_id", "=", meeting.id),
+                    ("transaction_type", "=", "in"),
+                    ("state", "!=", "cancelled"),
+                ], limit=1)
+                if not transaction:
+                    transaction = Transaction.create({
+                        "fund_id": fund.id,
+                        "company_id": meeting.company_id.id,
+                        "transaction_type": "in",
+                        "amount": amount,
+                        "transaction_date": fields.Date.context_today(meeting),
+                        "description": _(
+                            "Versement final de la caisse de réunion %s"
+                        ) % meeting.display_name,
+                        "origin_model": meeting._name,
+                        "origin_res_id": meeting.id,
+                        "origin_reference": meeting.name,
+                    })
+                    transaction.action_validate()
+                meeting.pot_settlement_fund_id = fund
+
+            meeting.write({
+                "pot_settlement_state": "settled",
+                "pot_settlement_transaction_id": (
+                    transaction.id if transaction else False
+                ),
+            })
+            if amount > 0:
+                period = meeting.subscription_period_id
+                period.settled_amount = (
+                    period.settled_amount or 0.0
+                ) + amount
+            meeting.message_post(body=_(
+                "Caisse temporaire soldée. Versement final : "
+                "%(amount).2f %(currency)s."
+            ) % {
+                "amount": amount,
+                "currency": meeting.currency_id.name or "",
+            })
+
+        return True
     
     @api.depends(
         "subscription_id",
@@ -3018,6 +3161,19 @@ class AssociationMeeting(models.Model):
                     % {
                         "count": len(pending_attendances),
                     }
+                )
+
+            if (
+                meeting.pot_collected_amount > 0
+                and meeting.pot_settlement_state != "settled"
+            ):
+                raise ValidationError(
+                    _(
+                        "La caisse temporaire de cotisation n'est pas "
+                        "encore soldée. Remettez les attributions puis "
+                        "utilisez « Solder et verser le reliquat » avant "
+                        "de clôturer la réunion."
+                    )
                 )
 
             # ==================================================
