@@ -34,6 +34,8 @@ from . import association_expense
 from . import association_fund
 
 from . import association_meeting
+from . import association_meeting_subscription_session
+from . import association_meeting_officer
 from . import association_meeting_attendance
 from . import association_meeting_resolution
 from . import association_meeting_collection
@@ -47,7 +49,6 @@ from . import association_dashboard
 
 from . import res_config_settings
 
-from . import association_fund
 from . import association_fund_transaction
 from . import association_member_account
 from . import association_member_account_transaction

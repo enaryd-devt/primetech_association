@@ -30,6 +30,13 @@ class AssociationSubscriptionCycleCloseWizard(
         ondelete="cascade",
     )
 
+    meeting_subscription_session_id = fields.Many2one(
+        comodel_name="association.meeting.subscription.session",
+        string="Session de cotisation en réunion",
+        readonly=True,
+        ondelete="restrict",
+    )
+
     subscription_id = fields.Many2one(
         comodel_name="association.subscription",
         string="Cotisation",
@@ -166,6 +173,13 @@ class AssociationSubscriptionCycleCloseWizard(
         string="Attributions",
     )
 
+    existing_allocation_ids = fields.One2many(
+        comodel_name="association.subscription.allocation",
+        compute="_compute_existing_allocation_ids",
+        string="Attributions déjà enregistrées",
+        readonly=True,
+    )
+
     # ==========================================================
     # TOTAUX DU WIZARD
     # ==========================================================
@@ -186,6 +200,21 @@ class AssociationSubscriptionCycleCloseWizard(
         string="Affectation complète",
         compute="_compute_wizard_totals",
     )
+
+    @api.depends(
+        "period_id.allocation_ids",
+        "period_id.allocation_ids.state",
+    )
+    def _compute_existing_allocation_ids(self):
+        for wizard in self:
+            wizard.existing_allocation_ids = (
+                wizard.period_id.allocation_ids.filtered(
+                    lambda allocation: allocation.state in (
+                        "confirmed",
+                        "paid",
+                    )
+                )
+            )
 
 
     # ==========================================================
@@ -293,6 +322,14 @@ class AssociationSubscriptionCycleCloseWizard(
                 "association.fund.transaction"
             ]
 
+        if self.period_id.state != "running":
+            raise ValidationError(
+                _(
+                    "Le reliquat ne peut être versé que lors de la "
+                    "clôture d'un cycle en cours."
+                )
+            )
+
         if not self.fund_id:
 
             raise ValidationError(
@@ -315,9 +352,17 @@ class AssociationSubscriptionCycleCloseWizard(
                 )
             )
 
-        transaction = self.env[
-            "association.fund.transaction"
-        ].create({
+        FundTransaction = self.env["association.fund.transaction"]
+        transaction = FundTransaction.search([
+            ("origin_model", "=", "association.subscription.period"),
+            ("origin_res_id", "=", self.period_id.id),
+            ("transaction_type", "=", "in"),
+            ("state", "!=", "cancelled"),
+        ], limit=1)
+        if transaction:
+            return transaction
+
+        transaction = FundTransaction.create({
             "company_id":
                 self.company_id.id,
 
@@ -458,6 +503,9 @@ class AssociationSubscriptionCycleCloseWizard(
             allocation = Allocation.create({
                 "period_id":
                     self.period_id.id,
+
+                "meeting_subscription_session_id":
+                    self.meeting_subscription_session_id.id,
 
                 "beneficiary_id":
                     line.beneficiary_id.id,
@@ -681,6 +729,9 @@ class AssociationSubscriptionCycleCloseWizard(
         period.write({
             "state": "closed",
         })
+
+        if self.meeting_subscription_session_id:
+            self.meeting_subscription_session_id.action_mark_closed()
 
         # ======================================================
         # NETTOYAGE DU MONTANT DE SAISIE
