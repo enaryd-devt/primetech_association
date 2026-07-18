@@ -137,7 +137,6 @@ class AssociationSubscriptionPaymentWizard(models.TransientModel):
     receipt_account_id = fields.Many2one(
         comodel_name="association.fund",
         string="Compte de versement",
-        required=True,
         readonly=True,
     )
 
@@ -398,155 +397,6 @@ class AssociationSubscriptionPaymentWizard(models.TransientModel):
     # CRÉER LE MOUVEMENT DU COMPTE DE VERSEMENT
     # ==========================================================
 
-    def _create_receipt_fund_transaction(
-        self,
-        payment,
-        allocated_amount,
-    ):
-
-        self.ensure_one()
-
-        # ======================================================
-        # CONTRÔLES
-        # ======================================================
-
-        if not self.receipt_account_id:
-            return False
-
-        if allocated_amount <= 0:
-            return False
-
-        FundTransaction = self.env[
-            "association.fund.transaction"
-        ]
-
-        # ======================================================
-        # ÉVITER LE DOUBLE MOUVEMENT
-        # ======================================================
-
-        existing_transaction = FundTransaction.search(
-            [
-                (
-                    "origin_model",
-                    "=",
-                    payment._name,
-                ),
-                (
-                    "origin_res_id",
-                    "=",
-                    payment.id,
-                ),
-                (
-                    "transaction_type",
-                    "=",
-                    "in",
-                ),
-                (
-                    "state",
-                    "!=",
-                    "cancelled",
-                ),
-            ],
-            limit=1,
-        )
-
-        if existing_transaction:
-            return existing_transaction
-
-        # ======================================================
-        # PRÉPARATION DES VALEURS
-        # ======================================================
-
-        vals = {
-            "fund_id":
-                self.receipt_account_id.id,
-
-            "transaction_date":
-                payment.payment_date,
-
-            # ==================================================
-            # association.fund.transaction
-            #
-            # in  = entrée
-            # out = sortie
-            # ==================================================
-
-            "transaction_type":
-                "in",
-
-            "amount":
-                allocated_amount,
-
-            "description":
-                _(
-                    "Paiement cotisation %(subscription)s - "
-                    "%(member)s"
-                )
-                % {
-                    "subscription":
-                        self.subscription_id.display_name,
-
-                    "member":
-                        self.member_id.display_name,
-                },
-
-            "origin_model":
-                payment._name,
-
-            "origin_res_id":
-                payment.id,
-
-            "origin_reference":
-                payment.name,
-        }
-
-        # ======================================================
-        # CRÉATION DU MOUVEMENT
-        # ======================================================
-
-        transaction = FundTransaction.create(
-            vals
-        )
-
-        # ======================================================
-        # VALIDATION SELON LE WORKFLOW DU MOUVEMENT DE TRÉSORERIE
-        # ======================================================
-
-        if hasattr(
-            transaction,
-            "action_validate",
-        ):
-
-            transaction.action_validate()
-
-        # ======================================================
-        # INVALIDATION DU COMPTE DE TRÉSORERIE
-        # ======================================================
-
-        fund = self.receipt_account_id
-
-        fund_fields = [
-            field_name
-            for field_name in (
-                "balance",
-                "total_in",
-                "total_out",
-                "transaction_count",
-            )
-            if field_name in fund._fields
-        ]
-
-        if fund_fields:
-
-            fund.invalidate_recordset(
-                fund_fields
-            )
-
-            fund.modified(
-                fund_fields
-            )
-
-        return transaction
     
   
     
@@ -792,7 +642,7 @@ class AssociationSubscriptionPaymentWizard(models.TransientModel):
         # ======================================================
 
         receipt_account = subscription.receipt_account_id
-        if not receipt_account:
+        if not receipt_account and not self.meeting_id:
             raise ValidationError(
                 _(
                     "Aucun compte de versement n'est défini sur la "
@@ -845,9 +695,13 @@ class AssociationSubscriptionPaymentWizard(models.TransientModel):
             "member_id": member.id,
             "payment_date": fields.Date.context_today(self),
             "amount": amount_received,
-            "payment_source": "external",
+            "payment_source": (
+                "meeting_cash" if self.meeting_id else "external"
+            ),
             "has_allocations": True,
-            "receipt_account_id": receipt_account.id,
+            "receipt_account_id": (
+                False if self.meeting_id else receipt_account.id
+            ),
             "payment_method": self.payment_method or "cash",
             "payment_reference": (
                 self.payment_reference
@@ -1010,15 +864,10 @@ class AssociationSubscriptionPaymentWizard(models.TransientModel):
                 }
             )
 
-        # ======================================================
-        # MOUVEMENT DE TRÉSORERIE
-        # ======================================================
-
-        self._create_receipt_fund_transaction(
-            payment=payment,
-            allocated_amount=allocated_amount,
-        )
-        self.env.flush_all()
+        # Le mouvement financier est centralisé dans
+        # association.payment.action_confirm(). En réunion, aucun
+        # compte financier n'est mouvementé avant le règlement final
+        # de la caisse temporaire.
 
         # ======================================================
         # RECALCUL CENTRALISÉ DE LA LIGNE
