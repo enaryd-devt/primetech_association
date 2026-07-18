@@ -315,9 +315,17 @@ class AssociationSubscriptionCycleCloseWizard(
                 )
             )
 
-        transaction = self.env[
-            "association.fund.transaction"
-        ].create({
+        FundTransaction = self.env["association.fund.transaction"]
+        transaction = FundTransaction.search([
+            ("origin_model", "=", "association.subscription.period"),
+            ("origin_res_id", "=", self.period_id.id),
+            ("transaction_type", "=", "in"),
+            ("state", "!=", "cancelled"),
+        ], limit=1)
+        if transaction:
+            return transaction
+
+        transaction = FundTransaction.create({
             "company_id":
                 self.company_id.id,
 

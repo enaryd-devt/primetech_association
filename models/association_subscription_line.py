@@ -276,6 +276,7 @@ class AssociationSubscriptionLine(models.Model):
         "subscription_id.current_period_id",
         "subscription_id.current_period_id.period_start_date",
         "subscription_id.current_period_id.period_end_date",
+        "penalty_amount",
         "payment_line_ids",
         "payment_line_ids.amount_paid",
         "payment_line_ids.payment_id",
@@ -354,7 +355,7 @@ class AssociationSubscriptionLine(models.Model):
 
             amount_due = (
                 subscription.amount or 0.0
-            )
+            ) + (record.penalty_amount or 0.0)
 
             # ======================================================
             # DOMAINE DE RECHERCHE DES AFFECTATIONS
@@ -677,7 +678,7 @@ class AssociationSubscriptionLine(models.Model):
             elif subscription.penalty_type == "percentage":
 
                 penalty_amount = (
-                    (line.amount_due or 0.0)
+                    max(line.balance or 0.0, 0.0)
                     * (subscription.penalty_rate or 0.0)
                     / 100.0
                 )
@@ -703,6 +704,30 @@ class AssociationSubscriptionLine(models.Model):
                         ),
                 }
             )
+
+        self._compute_current_cycle_payment()
+        return True
+
+    @api.model
+    def _cron_apply_due_penalties(self):
+        today = fields.Date.context_today(self)
+        lines = self.search([
+            ("subscription_id.state", "=", "running"),
+            ("subscription_id.penalty_enabled", "=", True),
+            ("penalty_applied", "=", False),
+        ])
+        overdue_lines = lines.filtered(
+            lambda line: line.penalty_deadline
+            and line.penalty_deadline < today
+            and line.payment_state != "paid"
+        )
+        overdue_lines._apply_late_penalty()
+        periods = overdue_lines.mapped(
+            "subscription_id.current_period_id"
+        ).exists()
+        if periods:
+            periods._apply_late_penalty()
+        return True
 
     # ==========================================================
     # SOLDE DU COMPTE MEMBRE

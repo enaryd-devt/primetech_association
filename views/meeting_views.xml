@@ -712,16 +712,27 @@
 
                                     <group>
 
+                                        <field name="committee_mode"
+                                               readonly="state == 'closed'"/>
+
+                                        <field name="committee_id"
+                                               invisible="committee_mode != 'official'"
+                                               required="committee_mode == 'official'"
+                                               readonly="state == 'closed'"
+                                               options="{'no_create': true}"/>
+
+                                        <field name="eligible_officer_ids" invisible="1"/>
+
                                         <field
                                             name="chairperson_id"
-                                            domain="[('company_id', '=', company_id)]"
+                                            domain="[('id', 'in', eligible_officer_ids)]"
                                             readonly="state == 'closed'"
                                             options="{'no_create': true}"
                                         />
 
                                         <field
                                             name="secretary_id"
-                                            domain="[('company_id', '=', company_id)]"
+                                            domain="[('id', 'in', eligible_officer_ids)]"
                                             readonly="state == 'closed'"
                                             options="{'no_create': true}"
                                         />
@@ -733,6 +744,17 @@
                                         />
 
                                     </group>
+
+                                    <field name="special_officer_ids"
+                                           invisible="committee_mode != 'special'"
+                                           readonly="state == 'closed'">
+                                        <list editable="bottom">
+                                            <field name="sequence" widget="handle"/>
+                                            <field name="member_id"/>
+                                            <field name="role"/>
+                                            <field name="note" optional="show"/>
+                                        </list>
+                                    </field>
 
                                 </div>
 
@@ -918,7 +940,6 @@
                                 </div>
 
                             </div>
-
 
                             <!-- ===================================================== -->
                             <!-- PILOTAGE DU CYCLE                                     -->
@@ -1307,32 +1328,6 @@
                                                 'currency_field': 'currency_id'
                                             }"
                                             readonly="1"/>
-
-
-                                            <!-- ===================================================== -->
-                                            <!-- SITUATION DE LA COTISATION                            -->
-                                            <!-- ===================================================== -->
-
-                                            <field
-                                                name="amount_due"
-                                                string="Montant dû"
-                                                widget="monetary"
-                                                options="{'currency_field': 'currency_id'}"
-                                                readonly="1"/>
-
-                                            <field
-                                                name="amount_paid"
-                                                string="Déjà payé"
-                                                widget="monetary"
-                                                options="{'currency_field': 'currency_id'}"
-                                                readonly="1"/>
-
-                                            <field
-                                                name="balance"
-                                                string="Reste"
-                                                widget="monetary"
-                                                options="{'currency_field': 'currency_id'}"
-                                                readonly="1"/>
 
                                             <field
                                                 name="member_account_balance"
@@ -2194,7 +2189,6 @@
                                 }">
 
                                 <list
-                                    editable="bottom"
                                     decoration-success="result == 'adopted'"
                                     decoration-danger="result == 'rejected'"
                                     decoration-muted="result == 'pending'">

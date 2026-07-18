@@ -50,6 +50,7 @@ Gestion financière
         "data/member_category_data.xml",
         "data/member_function_data.xml",
         "data/bank_sequence.xml",
+        "data/association_cron.xml",
 
         # =====================================================
         # VIEWS
@@ -75,6 +76,7 @@ Gestion financière
         "views/meeting_views.xml",
         "views/attendance_views.xml",
         "views/penalty_views.xml",
+        "views/res_config_settings_views.xml",
 
         # =====================================================
         # REPORT
@@ -86,11 +88,7 @@ Gestion financière
         "report/meeting_minutes_report.xml",
         "report/meeting_minutes_template.xml",
 
-        "views/dashboard_views.xml",
-
-
         # Banque / Trésorerie
-        "views/fund_views.xml",
         "views/fund_transaction_views.xml",
 
         "views/member_category_views.xml",
@@ -104,6 +102,9 @@ Gestion financière
         "views/meeting_collection_surplus_wizard_views.xml",
         "views/member_wallet_transaction_views.xml",
         "views/subscription_cycle_close_wizard_views.xml",
+
+        # Configuration (chargée avant les menus qui la référencent)
+        "views/configuration_views.xml",
 
         # =====================================================
         # MENUS

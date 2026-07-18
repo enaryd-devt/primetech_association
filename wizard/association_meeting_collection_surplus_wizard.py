@@ -32,5 +32,9 @@ class AssociationMeetingCollectionSurplusWizard(models.TransientModel):
             })
             if hasattr(transaction, 'action_confirm'):
                 transaction.action_confirm()
+        collection.write({
+            'processed_surplus_amount': self.surplus_amount,
+            'surplus_action': self.surplus_action,
+        })
         collection.meeting_id.message_post(body=_('Surplus de %.2f %s : %s.') % (self.surplus_amount, collection.currency_id.name or '', dict(self._fields['surplus_action'].selection).get(self.surplus_action)))
         return {'type': 'ir.actions.act_window_close'}

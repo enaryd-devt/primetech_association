@@ -202,6 +202,22 @@ class AssociationMeetingCollection(models.Model):
         compute="_compute_payment_amounts",
     )
 
+    processed_surplus_amount = fields.Monetary(
+        string="Surplus traité",
+        currency_field="currency_id",
+        default=0.0,
+        readonly=True,
+        copy=False,
+    )
+
+    surplus_action = fields.Selection(
+        [("refund", "Remboursé"),
+         ("credit_account", "Crédité au compte membre")],
+        string="Destination du surplus",
+        readonly=True,
+        copy=False,
+    )
+
     # ==========================================================
     # VALIDATION
     # ==========================================================
@@ -486,6 +502,12 @@ class AssociationMeetingCollection(models.Model):
                 "company_id":
                     self.company_id.id,
 
+                "payment_source": "meeting_cash",
+
+                "meeting_id": self.meeting_id.id,
+
+                "has_allocations": True,
+
                 "description":
                     _(
                         "Encaissement de %(subscription)s "
@@ -515,6 +537,7 @@ class AssociationMeetingCollection(models.Model):
             }
         )
 
+        payment.action_collect()
         payment.action_confirm()
 
         self.write(
@@ -636,6 +659,10 @@ class AssociationMeetingCollection(models.Model):
                 "amount": amount_to_pay,
                 "payment_method": "bank",
                 "company_id": self.company_id.id,
+                "payment_source": "member_account",
+                "member_account_id": account.id,
+                "meeting_id": self.meeting_id.id,
+                "has_allocations": True,
             }
         )
 
@@ -650,34 +677,8 @@ class AssociationMeetingCollection(models.Model):
             }
         )
 
+        payment.action_collect()
         payment.action_confirm()
-
-
-        # ======================================================
-        # DÉBIT DU COMPTE MEMBRE
-        # ======================================================
-
-        transaction = self.env[
-            "association.member.account.transaction"
-        ].create(
-            {
-                "account_id": account.id,
-                "transaction_type": "debit",
-                "amount": amount_to_pay,
-                "transaction_date":
-                    fields.Date.context_today(self),
-                "description": _(
-                    "Paiement cotisation %s depuis réunion %s"
-                )
-                % (
-                    self.subscription_id.display_name,
-                    self.meeting_id.display_name,
-                ),
-            }
-        )
-
-        if hasattr(transaction, "action_confirm"):
-            transaction.action_confirm()
 
         return False
     # ==========================================================
@@ -837,6 +838,20 @@ class AssociationMeetingCollection(models.Model):
                     }
                 )
 
+            if amount_received > current_balance:
+                raise ValidationError(
+                    _(
+                        "Le montant reçu pour %(member)s contient un "
+                        "surplus de %(surplus).2f %(currency)s. Utilisez "
+                        "le bouton Payer sur sa ligne afin de choisir "
+                        "entre remboursement et crédit du compte membre."
+                    ) % {
+                        "member": record.member_id.display_name,
+                        "surplus": amount_received - current_balance,
+                        "currency": record.currency_id.name or "",
+                    }
+                )
+
             # ==================================================
             # MONTANT À AFFECTER À LA COTISATION
             # ==================================================
@@ -863,6 +878,12 @@ class AssociationMeetingCollection(models.Model):
                 {
                     "company_id":
                         record.company_id.id,
+
+                    "payment_source": "meeting_cash",
+
+                    "meeting_id": record.meeting_id.id,
+
+                    "has_allocations": True,
 
                     "member_id":
                         record.member_id.id,
@@ -946,6 +967,7 @@ class AssociationMeetingCollection(models.Model):
             # CONFIRMATION DU PAIEMENT
             # ==================================================
 
+            payment.action_collect()
             payment.action_confirm()
 
             # ==================================================

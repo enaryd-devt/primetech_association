@@ -223,11 +223,24 @@ class AssociationPayment(models.Model):
         selection=[
             ("external", "Versement du membre"),
             ("member_account", "Compte membre"),
+            (
+                "meeting_cash",
+                "Caisse temporaire de réunion",
+            ),
         ],
         string="Origine du paiement",
         required=True,
         default="external",
         tracking=True,
+    )
+
+    meeting_id = fields.Many2one(
+        comodel_name="association.meeting",
+        string="Réunion d'encaissement",
+        readonly=True,
+        copy=False,
+        ondelete="restrict",
+        index=True,
     )
 
     member_account_id = fields.Many2one(
@@ -295,6 +308,22 @@ class AssociationPayment(models.Model):
         readonly=True,
         copy=False,
     )
+
+    processed_surplus_amount = fields.Monetary(
+        string="Surplus traité",
+        currency_field="currency_id",
+        default=0.0,
+        readonly=True,
+        copy=False,
+    )
+
+    surplus_action = fields.Selection(
+        [("member_account", "Crédité au compte membre"),
+         ("refund", "Remboursé")],
+        string="Destination du surplus",
+        readonly=True,
+        copy=False,
+    )
     # ==========================================================
     # NOTES
     # ==========================================================
@@ -345,11 +374,18 @@ class AssociationPayment(models.Model):
             if existing_transaction:
                 continue
 
+            amount_to_deposit = record.amount
+            if record.surplus_action == "refund":
+                amount_to_deposit -= record.processed_surplus_amount
+
+            if amount_to_deposit <= 0:
+                continue
+
             transaction = Transaction.create(
                 {
                     "fund_id": record.receipt_account_id.id,
                     "transaction_type": "in",
-                    "amount": record.amount,
+                    "amount": amount_to_deposit,
                     "transaction_date": record.payment_date,
                     "description": _(
                         "Encaissement paiement %s - %s"
@@ -624,7 +660,7 @@ class AssociationPayment(models.Model):
                         )
                     )
 
-                if record.receipt_account:
+                if record.receipt_account_id:
 
                     raise ValidationError(
                         _(
@@ -654,6 +690,25 @@ class AssociationPayment(models.Model):
                                 record.currency_id.name
                                 or "",
                         }
+                    )
+
+            elif record.payment_source == "meeting_cash":
+
+                if not record.meeting_id:
+                    raise ValidationError(
+                        _(
+                            "Un encaissement temporaire doit être "
+                            "rattaché à une réunion."
+                        )
+                    )
+
+                if record.receipt_account_id:
+                    raise ValidationError(
+                        _(
+                            "La caisse temporaire de réunion ne peut "
+                            "pas mouvementer directement un compte "
+                            "financier."
+                        )
                     )
                 
     # ==========================================================
