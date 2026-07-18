@@ -617,6 +617,32 @@ class AssociationMeeting(models.Model):
         compute="_compute_pot_statistics",
     )
 
+    pot_settlement_state = fields.Selection(
+        [("open", "Caisse temporaire ouverte"),
+         ("settled", "Caisse soldée")],
+        string="Règlement de la caisse",
+        default="open",
+        required=True,
+        copy=False,
+        tracking=True,
+    )
+
+    pot_settlement_fund_id = fields.Many2one(
+        "association.fund",
+        string="Compte de versement final",
+        domain="[('company_id', '=', company_id), ('active', '=', True)]",
+        copy=False,
+        tracking=True,
+    )
+
+    pot_settlement_transaction_id = fields.Many2one(
+        "association.fund.transaction",
+        string="Mouvement de versement final",
+        readonly=True,
+        copy=False,
+        ondelete="restrict",
+    )
+
     allocation_ids = fields.One2many(
         comodel_name="association.subscription.allocation",
         related="subscription_period_id.allocation_ids",
@@ -745,6 +771,7 @@ class AssociationMeeting(models.Model):
         "allocation_ids.amount",
         "allocation_ids.beneficiary_id",
         "allocation_ids.state",
+        "pot_settlement_state",
     )
     def _compute_pot_statistics(self):
 
@@ -760,6 +787,14 @@ class AssociationMeeting(models.Model):
                 and allocation.state in ("confirmed", "paid")
                 and allocation.beneficiary_id
             )
+            # Les anciens encaissements créés avant l'ajout du lien
+            # ``meeting_id`` restent visibles dans la réunion. Ce repli
+            # permet de présenter leur montant dans les indicateurs du cycle.
+            if not meeting_payments:
+                collected_amount = sum(
+                    meeting.subscription_line_ids.mapped("amount_paid")
+                )
+            allocated_amount = sum(allocations.mapped("amount"))
 
             meeting_payments = meeting.meeting_payment_ids.filtered(
                 lambda payment: payment.state == "confirmed"
@@ -787,6 +822,8 @@ class AssociationMeeting(models.Model):
             meeting.pot_available_amount = max(
                 collected_amount - allocated_amount, 0.0
             )
+            if meeting.pot_settlement_state == "settled":
+                meeting.pot_available_amount = 0.0
 
             meeting.pot_beneficiary_count = len(
                 allocations.mapped(
@@ -3196,6 +3233,19 @@ class AssociationMeeting(models.Model):
                     % {
                         "count": len(pending_attendances),
                     }
+                )
+
+            if (
+                meeting.pot_collected_amount > 0
+                and meeting.pot_settlement_state != "settled"
+            ):
+                raise ValidationError(
+                    _(
+                        "La caisse temporaire de cotisation n'est pas "
+                        "encore soldée. Remettez les attributions puis "
+                        "utilisez « Solder et verser le reliquat » avant "
+                        "de clôturer la réunion."
+                    )
                 )
 
             # ==================================================
