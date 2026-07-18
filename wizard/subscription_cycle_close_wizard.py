@@ -30,6 +30,13 @@ class AssociationSubscriptionCycleCloseWizard(
         ondelete="cascade",
     )
 
+    meeting_subscription_session_id = fields.Many2one(
+        comodel_name="association.meeting.subscription.session",
+        string="Session de cotisation en réunion",
+        readonly=True,
+        ondelete="restrict",
+    )
+
     subscription_id = fields.Many2one(
         comodel_name="association.subscription",
         string="Cotisation",
@@ -501,6 +508,9 @@ class AssociationSubscriptionCycleCloseWizard(
                 "period_id":
                     self.period_id.id,
 
+                "meeting_subscription_session_id":
+                    self.meeting_subscription_session_id.id,
+
                 "beneficiary_id":
                     line.beneficiary_id.id,
 
@@ -723,6 +733,9 @@ class AssociationSubscriptionCycleCloseWizard(
         period.write({
             "state": "closed",
         })
+
+        if self.meeting_subscription_session_id:
+            self.meeting_subscription_session_id.action_mark_closed()
 
         # ======================================================
         # NETTOYAGE DU MONTANT DE SAISIE

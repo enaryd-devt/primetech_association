@@ -542,6 +542,13 @@ class AssociationMeeting(models.Model):
         copy=False,
     )
 
+    subscription_session_ids = fields.One2many(
+        comodel_name="association.meeting.subscription.session",
+        inverse_name="meeting_id",
+        string="Sessions de cotisation",
+        copy=False,
+    )
+
     meeting_payment_ids = fields.One2many(
         comodel_name="association.payment",
         inverse_name="meeting_id",

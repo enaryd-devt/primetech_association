@@ -23,6 +23,24 @@ class AssociationMeetingCollection(models.Model):
         index=True,
     )
 
+    session_id = fields.Many2one(
+        comodel_name="association.meeting.subscription.session",
+        string="Session de cotisation",
+        ondelete="cascade",
+        index=True,
+        readonly=True,
+        copy=False,
+    )
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        Session = self.env["association.meeting.subscription.session"]
+        for vals in vals_list:
+            session_id = vals.get("session_id")
+            if session_id and Session.browse(session_id).state in ("closed", "cancelled"):
+                raise UserError(_("La session de cotisation est verrouillée."))
+        return super().create(vals_list)
+
     sequence = fields.Integer(
         string="Ordre",
         default=10,
@@ -506,6 +524,8 @@ class AssociationMeetingCollection(models.Model):
 
                 "meeting_id": self.meeting_id.id,
 
+                "meeting_subscription_session_id": self.session_id.id,
+
                 "has_allocations": True,
 
                 "description":
@@ -662,6 +682,7 @@ class AssociationMeetingCollection(models.Model):
                 "payment_source": "member_account",
                 "member_account_id": account.id,
                 "meeting_id": self.meeting_id.id,
+                "meeting_subscription_session_id": self.session_id.id,
                 "has_allocations": True,
             }
         )
@@ -882,6 +903,7 @@ class AssociationMeetingCollection(models.Model):
                     "payment_source": "meeting_cash",
 
                     "meeting_id": record.meeting_id.id,
+                    "meeting_subscription_session_id": record.session_id.id,
 
                     "has_allocations": True,
 
@@ -1112,6 +1134,7 @@ class AssociationMeetingCollection(models.Model):
                         )
                     )
         self._check_meeting_not_closed()
+        self._check_session_is_open()
 
         return super().write(vals)
 
@@ -1132,6 +1155,7 @@ class AssociationMeetingCollection(models.Model):
                     )
                 )
         self._check_meeting_not_closed()
+        self._check_session_is_open()
 
         return super().unlink()
 
@@ -1144,11 +1168,18 @@ class AssociationMeetingCollection(models.Model):
         )
 
         if closed_records:
-
             raise UserError(
                 _(
                     "La réunion est terminée et verrouillée.\n\n"
-                    "Cette information ne peut plus "
-                    "être modifiée."
+                    "Cette information ne peut plus être modifiée."
                 )
             )
+
+    def _check_session_is_open(self):
+        locked_records = self.filtered(
+            lambda record: record.session_id
+            and record.session_id.state in ("closed", "cancelled")
+        )
+
+        if locked_records:
+            raise UserError(_("La session de cotisation est verrouillée."))

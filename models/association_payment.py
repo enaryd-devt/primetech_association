@@ -243,6 +243,15 @@ class AssociationPayment(models.Model):
         index=True,
     )
 
+    meeting_subscription_session_id = fields.Many2one(
+        comodel_name="association.meeting.subscription.session",
+        string="Session de cotisation en réunion",
+        readonly=True,
+        copy=False,
+        ondelete="restrict",
+        index=True,
+    )
+
     member_account_id = fields.Many2one(
         comodel_name="association.member.account",
         string="Compte membre",

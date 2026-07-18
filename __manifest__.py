@@ -74,6 +74,7 @@ Gestion financière
        
 
         "views/meeting_views.xml",
+        "views/meeting_subscription_session_views.xml",
         "views/attendance_views.xml",
         "views/penalty_views.xml",
         "views/res_config_settings_views.xml",
@@ -87,6 +88,7 @@ Gestion financière
 
         "report/meeting_minutes_report.xml",
         "report/meeting_minutes_template.xml",
+        "report/meeting_subscription_session_report.xml",
 
         # Banque / Trésorerie
         "views/fund_transaction_views.xml",
