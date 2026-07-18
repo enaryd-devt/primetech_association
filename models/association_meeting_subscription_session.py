@@ -60,6 +60,17 @@ class AssociationMeetingSubscriptionSession(models.Model):
     )
     pending_count = fields.Integer(compute="_compute_statistics", string="En attente")
     paid_count = fields.Integer(compute="_compute_statistics", string="Payés")
+    expected_amount = fields.Monetary(
+        compute="_compute_statistics", currency_field="currency_id", string="Montant attendu",
+    )
+    closed_expected_amount = fields.Monetary(
+        currency_field="currency_id", readonly=True, copy=False,
+    )
+    closed_collected_amount = fields.Monetary(
+        currency_field="currency_id", readonly=True, copy=False,
+    )
+    closed_paid_count = fields.Integer(readonly=True, copy=False)
+    closed_pending_count = fields.Integer(readonly=True, copy=False)
     closed_by_id = fields.Many2one("res.users", readonly=True, copy=False)
     closed_at = fields.Datetime(readonly=True, copy=False)
     closure_note = fields.Text(string="Décision de clôture", readonly=True, copy=False)
@@ -124,7 +135,11 @@ class AssociationMeetingSubscriptionSession(models.Model):
         self.period_id = self.subscription_id.current_period_id
         return True
 
-    @api.depends("collection_ids.state", "collection_ids.payment_id.amount")
+    @api.depends(
+        "collection_ids.state",
+        "collection_ids.payment_id.amount",
+        "collection_ids.initial_due_amount",
+    )
     def _compute_statistics(self):
         for session in self:
             paid_lines = session.collection_ids.filtered(
@@ -135,6 +150,9 @@ class AssociationMeetingSubscriptionSession(models.Model):
             ))
             session.paid_count = len(paid_lines)
             session.collected_amount = sum(paid_lines.mapped("payment_id.amount"))
+            session.expected_amount = sum(
+                session.collection_ids.mapped("initial_due_amount")
+            )
 
     def action_start_collection(self):
         for session in self:
@@ -211,6 +229,10 @@ class AssociationMeetingSubscriptionSession(models.Model):
                 "state": "closed",
                 "closed_by_id": self.env.user.id,
                 "closed_at": fields.Datetime.now(),
+                "closed_expected_amount": session.expected_amount,
+                "closed_collected_amount": session.collected_amount,
+                "closed_paid_count": session.paid_count,
+                "closed_pending_count": session.pending_count,
             })
             if session.meeting_id.subscription_period_id == session.period_id:
                 session.meeting_id.write({

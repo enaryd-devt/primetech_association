@@ -40,6 +40,7 @@
                         </group>
                         <group string="Situation">
                             <field name="collected_amount" readonly="1"/>
+                            <field name="expected_amount" readonly="1"/>
                             <field name="pending_count" readonly="1"/>
                             <field name="paid_count" readonly="1"/>
                             <field name="closed_by_id" invisible="state != 'closed'"/>
@@ -52,11 +53,13 @@
                                 <list editable="bottom" create="0" delete="0">
                                     <field name="member_id"/>
                                     <field name="amount_due"/>
+                                    <field name="initial_due_amount" optional="hide"/>
                                     <field name="balance"/>
                                     <field name="amount"/>
                                     <field name="payment_method"/>
                                     <field name="state" widget="badge"/>
                                     <button name="action_collect" type="object" string="Encaisser" icon="fa-check" invisible="state != 'pending'"/>
+                                    <button name="action_pay_from_member_account" type="object" string="Compte membre" icon="fa-credit-card" invisible="state != 'pending'"/>
                                 </list>
                             </field>
                         </page>

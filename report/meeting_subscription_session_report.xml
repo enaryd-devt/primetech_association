@@ -19,13 +19,15 @@
                         <p><strong>Réunion :</strong> <span t-field="session.meeting_id"/></p>
                         <p><strong>Cotisation :</strong> <span t-field="session.subscription_id"/></p>
                         <p><strong>Cycle :</strong> <span t-field="session.period_id"/></p>
-                        <p><strong>Montant encaissé :</strong> <span t-field="session.collected_amount"/></p>
+                        <p><strong>Montant attendu :</strong> <span t-field="session.closed_expected_amount"/></p>
+                        <p><strong>Montant encaissé :</strong> <span t-field="session.closed_collected_amount"/></p>
+                        <p><strong>Membres réglés :</strong> <span t-field="session.closed_paid_count"/></p>
                         <p><strong>Clôturée le :</strong> <span t-field="session.closed_at"/></p>
                         <p><strong>Clôturée par :</strong> <span t-field="session.closed_by_id"/></p>
                         <h3>Encaissements</h3>
                         <table class="table table-sm">
-                            <thead><tr><th>Membre</th><th>Dû</th><th>Montant reçu</th><th>Statut</th></tr></thead>
-                            <tbody><tr t-foreach="session.collection_ids" t-as="line"><td><span t-field="line.member_id"/></td><td><span t-field="line.amount_due"/></td><td><span t-field="line.payment_id.amount"/></td><td><span t-field="line.state"/></td></tr></tbody>
+                            <thead><tr><th>Membre</th><th>Dû à la séance</th><th>Montant réglé</th><th>Reste actuel</th><th>Statut</th></tr></thead>
+                            <tbody><tr t-foreach="session.collection_ids" t-as="line"><td><span t-field="line.member_id"/></td><td><span t-field="line.initial_due_amount"/></td><td><span t-field="line.payment_id.amount"/></td><td><span t-field="line.balance"/></td><td><span t-field="line.state"/></td></tr></tbody>
                         </table>
                         <h3>Bénéficiaires attribués</h3>
                         <table class="table table-sm">

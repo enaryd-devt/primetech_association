@@ -39,7 +39,11 @@ class AssociationMeetingCollection(models.Model):
             session_id = vals.get("session_id")
             if session_id and Session.browse(session_id).state in ("closed", "cancelled"):
                 raise UserError(_("La session de cotisation est verrouillée."))
-        return super().create(vals_list)
+        records = super().create(vals_list)
+        for record in records:
+            if not record.initial_due_amount:
+                record.initial_due_amount = record.amount_due
+        return records
 
     sequence = fields.Integer(
         string="Ordre",
@@ -108,6 +112,13 @@ class AssociationMeetingCollection(models.Model):
         string="Montant dû",
         currency_field="currency_id",
         readonly=True,
+    )
+
+    initial_due_amount = fields.Monetary(
+        string="Dû au début de la séance",
+        currency_field="currency_id",
+        readonly=True,
+        copy=False,
     )
 
     balance = fields.Monetary(
@@ -700,6 +711,25 @@ class AssociationMeetingCollection(models.Model):
 
         payment.action_collect()
         payment.action_confirm()
+
+        self.write({
+            "payment_id": payment.id,
+            "collection_date": fields.Datetime.now(),
+            "validated_by": self.env.user.id,
+            "validation_date": fields.Datetime.now(),
+            "state": "paid",
+            "amount": 0.0,
+        })
+
+        self.meeting_id.message_post(
+            body=_(
+                "Cotisation réglée depuis le compte de %(member)s : %(amount).2f %(currency)s."
+            ) % {
+                "member": self.member_id.display_name,
+                "amount": amount_to_pay,
+                "currency": self.currency_id.name or "",
+            }
+        )
 
         return False
     # ==========================================================
