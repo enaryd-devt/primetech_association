@@ -341,6 +341,70 @@
                     </div>
 
                     <!-- ================================================= -->
+                    <!-- ATTRIBUTIONS DÉJÀ DÉCIDÉES                        -->
+                    <!-- ================================================= -->
+
+                    <div
+                        class="rounded border px-3 py-3 mb-3"
+                        invisible="not existing_allocation_ids"
+                        style="
+                            background: rgba(25, 135, 84, 0.045);
+                            border-left: 4px solid #198754 !important;
+                        ">
+
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+
+                            <div>
+
+                                <div class="fw-semibold">
+                                    <i class="fa fa-check-circle me-1"/>
+                                    Bénéficiaires déjà attribués
+                                </div>
+
+                                <div class="text-muted mt-1" style="font-size: 11px;">
+                                    Ces décisions ont déjà été prises pour ce cycle. Elles sont
+                                    déduites de la cagnotte disponible et ne seront pas créées une seconde fois.
+                                </div>
+
+                            </div>
+
+                            <div class="text-end ms-3" style="white-space: nowrap;">
+
+                                <div class="text-muted text-uppercase" style="font-size: 10px;">
+                                    Déjà attribué
+                                </div>
+
+                                <div class="fw-bold text-success mt-1">
+                                    <field name="allocated_amount" readonly="1" nolabel="1"/>
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                        <field name="existing_allocation_ids" nolabel="1" readonly="1">
+
+                            <list create="0" edit="0" delete="0">
+
+                                <field name="currency_id" column_invisible="True"/>
+
+                                <field name="beneficiary_id" string="Bénéficiaire"/>
+
+                                <field name="amount" string="Montant attribué" sum="Total"/>
+
+                                <field name="allocation_date" string="Date"/>
+
+                                <field name="allocation_method" string="Mode" optional="show"/>
+
+                                <field name="state" string="Statut" widget="badge"/>
+
+                            </list>
+
+                        </field>
+
+                    </div>
+
+                    <!-- ================================================= -->
                     <!-- ATTRIBUTION AUX BÉNÉFICIAIRES                     -->
                     <!-- ================================================= -->
 
@@ -458,44 +522,6 @@
                         </div>
 
                         <div
-                            class="rounded border px-3 py-2 mb-3"
-                            invisible="remaining_amount &lt;= 0"
-                            style="
-                                background: rgba(245, 158, 11, 0.04);
-                                border-left: 3px solid #f59e0b !important;
-                            ">
-
-                            <div class="row align-items-center">
-
-                                <div class="col-lg-7">
-
-                                    <div class="fw-semibold">
-                                        Affectation du reliquat
-                                    </div>
-
-                                    <div class="text-muted mt-1" style="font-size: 11px;">
-                                        Le montant non attribué sera versé sur le compte financier sélectionné.
-                                    </div>
-
-                                </div>
-
-                                <div class="col-lg-5">
-
-                                    <field
-                                        name="fund_id"
-                                        string="Compte du reliquat"
-                                        required="
-                                            has_beneficiaries == 'yes'
-                                            and remaining_amount &gt; 0
-                                        "/>
-
-                                </div>
-
-                            </div>
-
-                        </div>
-
-                        <div
                             class="alert alert-success py-2 mb-3"
                             role="alert"
                             invisible="remaining_amount &gt; 0">
@@ -510,67 +536,82 @@
                     </div>
 
                     <!-- ================================================= -->
-                    <!-- TRANSFERT EN TRÉSORERIE                           -->
+                    <!-- COMPTE DE VERSEMENT                               -->
                     <!-- ================================================= -->
 
-                    <div invisible="has_beneficiaries != 'no'">
+                    <div
+                        class="rounded border px-4 py-3 mb-3"
+                        invisible="
+                            not has_beneficiaries
+                            or (has_beneficiaries == 'yes' and remaining_amount &lt;= 0)
+                        "
+                        style="
+                            background: linear-gradient(135deg, rgba(13, 110, 253, 0.10), rgba(13, 110, 253, 0.025));
+                            border-left: 5px solid #0d6efd !important;
+                            box-shadow: 0 2px 8px rgba(13, 110, 253, 0.08);
+                        ">
 
-                        <div
-                            class="rounded border px-3 py-3 mb-3"
-                            style="
-                                background: rgba(113, 75, 103, 0.035);
-                                border-left: 3px solid var(--o-brand-primary) !important;
-                            ">
+                        <div class="d-flex align-items-center mb-3">
 
-                            <div class="row align-items-center">
+                            <span
+                                class="d-inline-flex align-items-center justify-content-center rounded-circle me-2"
+                                style="width: 32px; height: 32px; background: #0d6efd; color: #fff;">
+                                <i class="fa fa-bank"/>
+                            </span>
 
-                                <div class="col-lg-5">
+                            <div>
 
-                                    <div class="fw-semibold">
-                                        <i class="fa fa-bank me-1"/>
-                                        Transfert en trésorerie
-                                    </div>
-
-                                    <div class="text-muted mt-1" style="font-size: 11px;">
-                                        La totalité de la cagnotte disponible sera versée
-                                        sur le compte financier choisi.
-                                    </div>
-
+                                <div class="fw-bold">
+                                    Choix obligatoire du compte de versement
                                 </div>
 
-                                <div class="col-lg-3">
-
-                                    <div class="text-muted" style="font-size: 10px;">
-                                        MONTANT À TRANSFÉRER
-                                    </div>
-
-                                    <div class="fw-bold fs-5 mt-1">
-                                        <field name="treasury_amount" readonly="1"/>
-                                    </div>
-
-                                </div>
-
-                                <div class="col-lg-4">
-
-                                    <field
-                                        name="fund_id"
-                                        string="Compte financier"
-                                        required="has_beneficiaries == 'no'"/>
-
+                                <div class="text-muted" style="font-size: 11px;">
+                                    Le reliquat sera enregistré une seule fois sur le compte sélectionné lors de la confirmation.
                                 </div>
 
                             </div>
 
                         </div>
 
-                        <div class="alert alert-warning py-2 mb-3" role="alert">
+                        <div class="row align-items-end g-3">
 
-                            <i class="fa fa-exclamation-triangle me-1"/>
+                            <div class="col-lg-4">
 
-                            La confirmation créera un mouvement financier d'entrée validé,
-                            puis terminera et verrouillera le cycle.
+                                <div class="text-muted text-uppercase" style="font-size: 10px;">
+                                    Montant à verser
+                                </div>
+
+                                <div class="fw-bold fs-4 mt-1 text-primary">
+                                    <field name="treasury_amount" readonly="1" nolabel="1"/>
+                                </div>
+
+                            </div>
+
+                            <div class="col-lg-8">
+
+                                <field
+                                    name="fund_id"
+                                    string="Compte financier de destination"
+                                    required="
+                                        has_beneficiaries == 'no'
+                                        or (has_beneficiaries == 'yes' and remaining_amount &gt; 0)
+                                    "/>
+
+                            </div>
 
                         </div>
+
+                    </div>
+
+                    <div
+                        class="alert alert-warning py-2 mb-3"
+                        role="alert"
+                        invisible="not has_beneficiaries or (has_beneficiaries == 'yes' and remaining_amount &lt;= 0)">
+
+                        <i class="fa fa-exclamation-triangle me-1"/>
+
+                        La confirmation créera un unique mouvement financier d'entrée pour le montant affiché,
+                        puis terminera et verrouillera le cycle.
 
                     </div>
 
