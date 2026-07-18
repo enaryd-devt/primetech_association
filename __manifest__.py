@@ -109,6 +109,9 @@ Gestion financière
         # Configuration (chargée avant les menus qui la référencent)
         "views/configuration_views.xml",
 
+        # Configuration (chargée avant les menus qui la référencent)
+        "views/configuration_views.xml",
+
         # =====================================================
         # MENUS
         # =====================================================
