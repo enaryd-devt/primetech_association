@@ -15,3 +15,4 @@ from . import association_payment_surplus_wizard
 from . import association_meeting_collection_surplus_wizard
 from . import subscription_cycle_close_wizard
 from . import subscription_payment_wizard
+from . import meeting_subscription_cycle_start_wizard

@@ -23,6 +23,28 @@ class AssociationMeetingCollection(models.Model):
         index=True,
     )
 
+    session_id = fields.Many2one(
+        comodel_name="association.meeting.subscription.session",
+        string="Session de cotisation",
+        ondelete="cascade",
+        index=True,
+        readonly=True,
+        copy=False,
+    )
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        Session = self.env["association.meeting.subscription.session"]
+        for vals in vals_list:
+            session_id = vals.get("session_id")
+            if session_id and Session.browse(session_id).state in ("closed", "cancelled"):
+                raise UserError(_("La session de cotisation est verrouillée."))
+        records = super().create(vals_list)
+        for record in records:
+            if not record.initial_due_amount:
+                record.initial_due_amount = record.amount_due
+        return records
+
     sequence = fields.Integer(
         string="Ordre",
         default=10,
@@ -90,6 +112,13 @@ class AssociationMeetingCollection(models.Model):
         string="Montant dû",
         currency_field="currency_id",
         readonly=True,
+    )
+
+    initial_due_amount = fields.Monetary(
+        string="Dû au début de la séance",
+        currency_field="currency_id",
+        readonly=True,
+        copy=False,
     )
 
     balance = fields.Monetary(
@@ -200,6 +229,22 @@ class AssociationMeetingCollection(models.Model):
         string="Surplus",
         currency_field="currency_id",
         compute="_compute_payment_amounts",
+    )
+
+    processed_surplus_amount = fields.Monetary(
+        string="Surplus traité",
+        currency_field="currency_id",
+        default=0.0,
+        readonly=True,
+        copy=False,
+    )
+
+    surplus_action = fields.Selection(
+        [("refund", "Remboursé"),
+         ("credit_account", "Crédité au compte membre")],
+        string="Destination du surplus",
+        readonly=True,
+        copy=False,
     )
 
     # ==========================================================
@@ -486,6 +531,14 @@ class AssociationMeetingCollection(models.Model):
                 "company_id":
                     self.company_id.id,
 
+                "payment_source": "meeting_cash",
+
+                "meeting_id": self.meeting_id.id,
+
+                "meeting_subscription_session_id": self.session_id.id,
+
+                "has_allocations": True,
+
                 "description":
                     _(
                         "Encaissement de %(subscription)s "
@@ -515,6 +568,7 @@ class AssociationMeetingCollection(models.Model):
             }
         )
 
+        payment.action_collect()
         payment.action_confirm()
 
         self.write(
@@ -636,6 +690,11 @@ class AssociationMeetingCollection(models.Model):
                 "amount": amount_to_pay,
                 "payment_method": "bank",
                 "company_id": self.company_id.id,
+                "payment_source": "member_account",
+                "member_account_id": account.id,
+                "meeting_id": self.meeting_id.id,
+                "meeting_subscription_session_id": self.session_id.id,
+                "has_allocations": True,
             }
         )
 
@@ -650,34 +709,27 @@ class AssociationMeetingCollection(models.Model):
             }
         )
 
+        payment.action_collect()
         payment.action_confirm()
 
+        self.write({
+            "payment_id": payment.id,
+            "collection_date": fields.Datetime.now(),
+            "validated_by": self.env.user.id,
+            "validation_date": fields.Datetime.now(),
+            "state": "paid",
+            "amount": 0.0,
+        })
 
-        # ======================================================
-        # DÉBIT DU COMPTE MEMBRE
-        # ======================================================
-
-        transaction = self.env[
-            "association.member.account.transaction"
-        ].create(
-            {
-                "account_id": account.id,
-                "transaction_type": "debit",
+        self.meeting_id.message_post(
+            body=_(
+                "Cotisation réglée depuis le compte de %(member)s : %(amount).2f %(currency)s."
+            ) % {
+                "member": self.member_id.display_name,
                 "amount": amount_to_pay,
-                "transaction_date":
-                    fields.Date.context_today(self),
-                "description": _(
-                    "Paiement cotisation %s depuis réunion %s"
-                )
-                % (
-                    self.subscription_id.display_name,
-                    self.meeting_id.display_name,
-                ),
+                "currency": self.currency_id.name or "",
             }
         )
-
-        if hasattr(transaction, "action_confirm"):
-            transaction.action_confirm()
 
         return False
     # ==========================================================
@@ -837,6 +889,20 @@ class AssociationMeetingCollection(models.Model):
                     }
                 )
 
+            if amount_received > current_balance:
+                raise ValidationError(
+                    _(
+                        "Le montant reçu pour %(member)s contient un "
+                        "surplus de %(surplus).2f %(currency)s. Utilisez "
+                        "le bouton Payer sur sa ligne afin de choisir "
+                        "entre remboursement et crédit du compte membre."
+                    ) % {
+                        "member": record.member_id.display_name,
+                        "surplus": amount_received - current_balance,
+                        "currency": record.currency_id.name or "",
+                    }
+                )
+
             # ==================================================
             # MONTANT À AFFECTER À LA COTISATION
             # ==================================================
@@ -863,6 +929,13 @@ class AssociationMeetingCollection(models.Model):
                 {
                     "company_id":
                         record.company_id.id,
+
+                    "payment_source": "meeting_cash",
+
+                    "meeting_id": record.meeting_id.id,
+                    "meeting_subscription_session_id": record.session_id.id,
+
+                    "has_allocations": True,
 
                     "member_id":
                         record.member_id.id,
@@ -946,6 +1019,7 @@ class AssociationMeetingCollection(models.Model):
             # CONFIRMATION DU PAIEMENT
             # ==================================================
 
+            payment.action_collect()
             payment.action_confirm()
 
             # ==================================================
@@ -1090,6 +1164,7 @@ class AssociationMeetingCollection(models.Model):
                         )
                     )
         self._check_meeting_not_closed()
+        self._check_session_is_open()
 
         return super().write(vals)
 
@@ -1110,6 +1185,7 @@ class AssociationMeetingCollection(models.Model):
                     )
                 )
         self._check_meeting_not_closed()
+        self._check_session_is_open()
 
         return super().unlink()
 
@@ -1122,11 +1198,18 @@ class AssociationMeetingCollection(models.Model):
         )
 
         if closed_records:
-
             raise UserError(
                 _(
                     "La réunion est terminée et verrouillée.\n\n"
-                    "Cette information ne peut plus "
-                    "être modifiée."
+                    "Cette information ne peut plus être modifiée."
                 )
             )
+
+    def _check_session_is_open(self):
+        locked_records = self.filtered(
+            lambda record: record.session_id
+            and record.session_id.state in ("closed", "cancelled")
+        )
+
+        if locked_records:
+            raise UserError(_("La session de cotisation est verrouillée."))

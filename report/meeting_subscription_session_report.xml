@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="action_report_meeting_subscription_session" model="ir.actions.report">
+        <field name="name">Rapport de clôture de cotisation</field>
+        <field name="model">association.meeting.subscription.session</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">primetech_association.report_meeting_subscription_session_document</field>
+        <field name="report_file">primetech_association.report_meeting_subscription_session_document</field>
+        <field name="binding_model_id" ref="model_association_meeting_subscription_session"/>
+        <field name="binding_type">report</field>
+        <field name="print_report_name">'Clôture cotisation - %s' % (object.period_id.name or '')</field>
+    </record>
+    <template id="report_meeting_subscription_session_document">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="session">
+                <t t-call="web.external_layout">
+                    <div class="page">
+                        <h2>Rapport de clôture de cotisation</h2>
+                        <p><strong>Réunion :</strong> <span t-field="session.meeting_id"/></p>
+                        <p><strong>Cotisation :</strong> <span t-field="session.subscription_id"/></p>
+                        <p><strong>Cycle :</strong> <span t-field="session.period_id"/></p>
+                        <p><strong>Montant attendu :</strong> <span t-field="session.closed_expected_amount"/></p>
+                        <p><strong>Montant encaissé :</strong> <span t-field="session.closed_collected_amount"/></p>
+                        <p><strong>Membres réglés :</strong> <span t-field="session.closed_paid_count"/></p>
+                        <p><strong>Clôturée le :</strong> <span t-field="session.closed_at"/></p>
+                        <p><strong>Clôturée par :</strong> <span t-field="session.closed_by_id"/></p>
+                        <h3>Encaissements</h3>
+                        <table class="table table-sm">
+                            <thead><tr><th>Membre</th><th>Dû à la séance</th><th>Montant réglé</th><th>Reste actuel</th><th>Statut</th></tr></thead>
+                            <tbody><tr t-foreach="session.collection_ids" t-as="line"><td><span t-field="line.member_id"/></td><td><span t-field="line.initial_due_amount"/></td><td><span t-field="line.payment_id.amount"/></td><td><span t-field="line.balance"/></td><td><span t-field="line.state"/></td></tr></tbody>
+                        </table>
+                        <h3>Bénéficiaires attribués</h3>
+                        <table class="table table-sm">
+                            <thead><tr><th>Bénéficiaire</th><th>Montant</th><th>Statut</th></tr></thead>
+                            <tbody><tr t-foreach="session.allocation_ids" t-as="allocation"><td><span t-field="allocation.beneficiary_id"/></td><td><span t-field="allocation.amount"/></td><td><span t-field="allocation.state"/></td></tr></tbody>
+                        </table>
+                        <h3>Décision</h3><p t-field="session.closure_note"/>
+                    </div>
+                </t>
+            </t>
+        </t>
+    </template>
+</odoo>
