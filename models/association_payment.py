@@ -1938,6 +1938,20 @@ class AssociationPayment(models.Model):
                     ]
                 )
 
+            if record.meeting_id:
+                meeting_fields = [
+                    "collection_count",
+                    "collection_paid_count",
+                    "collection_pending_count",
+                    "collection_total",
+                    "pot_collected_amount",
+                    "pot_allocated_amount",
+                    "pot_available_amount",
+                    "pot_beneficiary_count",
+                ]
+                record.meeting_id.invalidate_recordset(meeting_fields)
+                record.meeting_id.modified(meeting_fields)
+
             # ======================================================
             # IMPORTANT
             # NE PAS RECRÉDITER AUTOMATIQUEMENT LE SURPLUS

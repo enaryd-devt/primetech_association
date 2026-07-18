@@ -1356,6 +1356,7 @@
                                                 string="Payer"
                                                 icon="fa-money"
                                                 class="btn-primary"
+                                                context="{'default_meeting_id': parent.id}"
                                                 invisible="
                                                     payment_state == 'paid'
                                                     or balance &lt;= 0
@@ -1371,6 +1372,7 @@
                                                 string="Compte membre"
                                                 icon="fa-university"
                                                 class="btn-secondary"
+                                                context="{'default_meeting_id': parent.id}"
                                                 invisible="
                                                     payment_state == 'paid'
                                                     or balance &lt;= 0

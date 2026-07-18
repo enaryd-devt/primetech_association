@@ -701,13 +701,8 @@ class AssociationMeeting(models.Model):
     # ==========================================================
 
     @api.depends(
-        "collection_ids.state",
-        "collection_ids.payment_id.amount",
-        "collection_ids.payment_id.payment_source",
-        "collection_ids.processed_surplus_amount",
-        "collection_ids.surplus_action",
-        "collection_ids.payment_id.processed_surplus_amount",
-        "collection_ids.payment_id.surplus_action",
+        "subscription_line_ids.payment_state",
+        "subscription_line_ids.amount_paid",
         "allocation_ids",
         "allocation_ids.amount",
         "allocation_ids.beneficiary_id",
@@ -729,37 +724,28 @@ class AssociationMeeting(models.Model):
                     and allocation.beneficiary_id
             )
 
-            cash_collections = meeting.collection_ids.filtered(
-                lambda collection: collection.state == "paid"
-                and collection.payment_id
-                and collection.payment_id.payment_source == "meeting_cash"
-            )
-            collected_amount = sum(
-                cash_collections.mapped("payment_id.amount")
-            ) + sum(
-                cash_collections.filtered(
-                    lambda collection:
-                        collection.surplus_action == "credit_account"
-                ).mapped("processed_surplus_amount")
-            )
-
-            other_meeting_payments = self.env[
+            meeting_payments = self.env[
                 "association.payment"
             ].search([
                 ("meeting_id", "=", meeting.id),
-                ("payment_source", "=", "meeting_cash"),
                 ("state", "=", "confirmed"),
-                ("id", "not in", cash_collections.mapped("payment_id").ids),
             ])
-            collected_amount += sum(
+            collected_amount = sum(
                 payment.amount
                 - (
                     payment.processed_surplus_amount
                     if payment.surplus_action == "refund"
                     else 0.0
                 )
-                for payment in other_meeting_payments
+                for payment in meeting_payments
             )
+            # Les anciens encaissements créés avant l'ajout du lien
+            # ``meeting_id`` restent visibles dans la réunion. Ce repli
+            # permet de présenter leur montant dans les indicateurs du cycle.
+            if not meeting_payments:
+                collected_amount = sum(
+                    meeting.subscription_line_ids.mapped("amount_paid")
+                )
             allocated_amount = sum(allocations.mapped("amount"))
 
             meeting.pot_collected_amount = collected_amount
@@ -1447,9 +1433,9 @@ class AssociationMeeting(models.Model):
     # ==========================================================
 
     @api.depends(
-        "collection_ids",
-        "collection_ids.state",
-        "collection_ids.amount",
+        "subscription_line_ids",
+        "subscription_line_ids.payment_state",
+        "subscription_line_ids.amount_paid",
     )
     def _compute_collection_statistics(self):
 
@@ -1468,7 +1454,7 @@ class AssociationMeeting(models.Model):
             # RÉCUPÉRATION DES LIGNES
             # ==================================================
 
-            collection_lines = meeting.collection_ids
+            collection_lines = meeting.subscription_line_ids
 
             if not collection_lines:
                 continue
@@ -1478,8 +1464,7 @@ class AssociationMeeting(models.Model):
             # ==================================================
 
             pending_lines = collection_lines.filtered(
-                lambda line:
-                    line.state == "pending"
+                lambda line: line.payment_state != "paid"
             )
 
             # ==================================================
@@ -1487,8 +1472,7 @@ class AssociationMeeting(models.Model):
             # ==================================================
 
             paid_lines = collection_lines.filtered(
-                lambda line:
-                    line.state == "paid"
+                lambda line: line.payment_state == "paid"
             )
 
             # ==================================================
@@ -1508,7 +1492,7 @@ class AssociationMeeting(models.Model):
             )
 
             meeting.collection_total = sum(
-                paid_lines.mapped("amount")
+                paid_lines.mapped("amount_paid")
             )
 
 

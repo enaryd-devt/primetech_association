@@ -1129,6 +1129,10 @@ class AssociationSubscriptionLine(models.Model):
                 "member_account_id":
                     member_account.id,
 
+                "meeting_id": self.env.context.get(
+                    "default_meeting_id"
+                ),
+
                 "has_allocations":
                     True,
 
