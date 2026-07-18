@@ -166,6 +166,13 @@ class AssociationSubscriptionCycleCloseWizard(
         string="Attributions",
     )
 
+    existing_allocation_ids = fields.One2many(
+        comodel_name="association.subscription.allocation",
+        compute="_compute_existing_allocation_ids",
+        string="Attributions déjà enregistrées",
+        readonly=True,
+    )
+
     # ==========================================================
     # TOTAUX DU WIZARD
     # ==========================================================
@@ -186,6 +193,21 @@ class AssociationSubscriptionCycleCloseWizard(
         string="Affectation complète",
         compute="_compute_wizard_totals",
     )
+
+    @api.depends(
+        "period_id.allocation_ids",
+        "period_id.allocation_ids.state",
+    )
+    def _compute_existing_allocation_ids(self):
+        for wizard in self:
+            wizard.existing_allocation_ids = (
+                wizard.period_id.allocation_ids.filtered(
+                    lambda allocation: allocation.state in (
+                        "confirmed",
+                        "paid",
+                    )
+                )
+            )
 
 
     # ==========================================================
@@ -293,6 +315,14 @@ class AssociationSubscriptionCycleCloseWizard(
                 "association.fund.transaction"
             ]
 
+        if self.period_id.state != "running":
+            raise ValidationError(
+                _(
+                    "Le reliquat ne peut être versé que lors de la "
+                    "clôture d'un cycle en cours."
+                )
+            )
+
         if not self.fund_id:
 
             raise ValidationError(
@@ -315,9 +345,17 @@ class AssociationSubscriptionCycleCloseWizard(
                 )
             )
 
-        transaction = self.env[
-            "association.fund.transaction"
-        ].create({
+        FundTransaction = self.env["association.fund.transaction"]
+        transaction = FundTransaction.search([
+            ("origin_model", "=", "association.subscription.period"),
+            ("origin_res_id", "=", self.period_id.id),
+            ("transaction_type", "=", "in"),
+            ("state", "!=", "cancelled"),
+        ], limit=1)
+        if transaction:
+            return transaction
+
+        transaction = FundTransaction.create({
             "company_id":
                 self.company_id.id,
 
