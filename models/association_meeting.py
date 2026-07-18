@@ -542,6 +542,14 @@ class AssociationMeeting(models.Model):
         copy=False,
     )
 
+    meeting_payment_ids = fields.One2many(
+        comodel_name="association.payment",
+        inverse_name="meeting_id",
+        string="Paiements issus de la réunion",
+        readonly=True,
+        copy=False,
+    )
+
     collection_count = fields.Integer(
         string="Nombre de membres",
         compute="_compute_collection_statistics",
@@ -755,6 +763,10 @@ class AssociationMeeting(models.Model):
     @api.depends(
         "subscription_line_ids.payment_state",
         "subscription_line_ids.amount_paid",
+        "meeting_payment_ids.state",
+        "meeting_payment_ids.amount",
+        "meeting_payment_ids.processed_surplus_amount",
+        "meeting_payment_ids.surplus_action",
         "allocation_ids",
         "allocation_ids.amount",
         "allocation_ids.beneficiary_id",
@@ -773,7 +785,7 @@ class AssociationMeeting(models.Model):
             allocations = meeting.allocation_ids.filtered(
                 lambda allocation: allocation.meeting_id == meeting
                 and allocation.state in ("confirmed", "paid")
-                    and allocation.beneficiary_id
+                and allocation.beneficiary_id
             )
             # Les anciens encaissements créés avant l'ajout du lien
             # ``meeting_id`` restent visibles dans la réunion. Ce repli
@@ -784,12 +796,9 @@ class AssociationMeeting(models.Model):
                 )
             allocated_amount = sum(allocations.mapped("amount"))
 
-            meeting_payments = self.env[
-                "association.payment"
-            ].search([
-                ("meeting_id", "=", meeting.id),
-                ("state", "=", "confirmed"),
-            ])
+            meeting_payments = meeting.meeting_payment_ids.filtered(
+                lambda payment: payment.state == "confirmed"
+            )
             collected_amount = sum(
                 payment.amount
                 - (
