@@ -1,6 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
 
-    <!-- Scheduled actions will be added in Version 1 -->
+    <record id="ir_cron_apply_subscription_penalties" model="ir.cron">
+        <field name="name">Association : appliquer les pénalités échues</field>
+        <field name="model_id" ref="model_association_subscription_line"/>
+        <field name="state">code</field>
+        <field name="code">model._cron_apply_due_penalties()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
+        <field name="active" eval="True"/>
+    </record>
 
 </odoo>

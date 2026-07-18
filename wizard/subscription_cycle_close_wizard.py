@@ -293,6 +293,14 @@ class AssociationSubscriptionCycleCloseWizard(
                 "association.fund.transaction"
             ]
 
+        if self.period_id.state != "running":
+            raise ValidationError(
+                _(
+                    "Le reliquat ne peut être versé que lors de la "
+                    "clôture d'un cycle en cours."
+                )
+            )
+
         if not self.fund_id:
 
             raise ValidationError(
@@ -315,9 +323,17 @@ class AssociationSubscriptionCycleCloseWizard(
                 )
             )
 
-        transaction = self.env[
-            "association.fund.transaction"
-        ].create({
+        FundTransaction = self.env["association.fund.transaction"]
+        transaction = FundTransaction.search([
+            ("origin_model", "=", "association.subscription.period"),
+            ("origin_res_id", "=", self.period_id.id),
+            ("transaction_type", "=", "in"),
+            ("state", "!=", "cancelled"),
+        ], limit=1)
+        if transaction:
+            return transaction
+
+        transaction = FundTransaction.create({
             "company_id":
                 self.company_id.id,
 
