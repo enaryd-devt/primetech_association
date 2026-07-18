@@ -166,6 +166,13 @@ class AssociationSubscriptionCycleCloseWizard(
         string="Attributions",
     )
 
+    existing_allocation_ids = fields.One2many(
+        comodel_name="association.subscription.allocation",
+        compute="_compute_existing_allocation_ids",
+        string="Attributions déjà enregistrées",
+        readonly=True,
+    )
+
     # ==========================================================
     # TOTAUX DU WIZARD
     # ==========================================================
@@ -186,6 +193,21 @@ class AssociationSubscriptionCycleCloseWizard(
         string="Affectation complète",
         compute="_compute_wizard_totals",
     )
+
+    @api.depends(
+        "period_id.allocation_ids",
+        "period_id.allocation_ids.state",
+    )
+    def _compute_existing_allocation_ids(self):
+        for wizard in self:
+            wizard.existing_allocation_ids = (
+                wizard.period_id.allocation_ids.filtered(
+                    lambda allocation: allocation.state in (
+                        "confirmed",
+                        "paid",
+                    )
+                )
+            )
 
 
     # ==========================================================

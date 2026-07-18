@@ -775,6 +775,14 @@ class AssociationMeeting(models.Model):
                 and allocation.state in ("confirmed", "paid")
                     and allocation.beneficiary_id
             )
+            # Les anciens encaissements créés avant l'ajout du lien
+            # ``meeting_id`` restent visibles dans la réunion. Ce repli
+            # permet de présenter leur montant dans les indicateurs du cycle.
+            if not meeting_payments:
+                collected_amount = sum(
+                    meeting.subscription_line_ids.mapped("amount_paid")
+                )
+            allocated_amount = sum(allocations.mapped("amount"))
 
             meeting_payments = self.env[
                 "association.payment"
