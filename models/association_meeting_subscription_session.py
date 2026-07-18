@@ -225,6 +225,7 @@ class AssociationMeetingSubscriptionSession(models.Model):
 
     def action_mark_closed(self):
         for session in self:
+            session.collection_ids.action_freeze_cycle_snapshot()
             session.write({
                 "state": "closed",
                 "closed_by_id": self.env.user.id,

@@ -121,6 +121,31 @@ class AssociationMeetingCollection(models.Model):
         copy=False,
     )
 
+    frozen_amount_paid = fields.Monetary(
+        string="Réglé à la clôture du cycle",
+        currency_field="currency_id",
+        readonly=True,
+        copy=False,
+    )
+
+    frozen_balance = fields.Monetary(
+        string="Reste à la clôture du cycle",
+        currency_field="currency_id",
+        readonly=True,
+        copy=False,
+    )
+
+    frozen_payment_state = fields.Selection(
+        [
+            ("not_paid", "Non payé"),
+            ("partial", "Partiellement payé"),
+            ("paid", "Payé"),
+        ],
+        string="État à la clôture du cycle",
+        readonly=True,
+        copy=False,
+    )
+
     balance = fields.Monetary(
         related="subscription_line_id.balance",
         string="Reste à payer",
@@ -732,6 +757,16 @@ class AssociationMeetingCollection(models.Model):
         )
 
         return False
+
+    def action_freeze_cycle_snapshot(self):
+        """Preserve the collection state shown for the closed meeting cycle."""
+        for record in self:
+            record.write({
+                "frozen_amount_paid": record.subscription_line_id.amount_paid,
+                "frozen_balance": record.subscription_line_id.balance,
+                "frozen_payment_state": record.subscription_line_id.payment_state,
+            })
+        return True
     # ==========================================================
     # CONTRAINTES SQL
     # ==========================================================

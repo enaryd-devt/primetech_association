@@ -55,6 +55,9 @@
                                     <field name="amount_due"/>
                                     <field name="initial_due_amount" optional="hide"/>
                                     <field name="balance"/>
+                                    <field name="frozen_amount_paid" invisible="state != 'closed'"/>
+                                    <field name="frozen_balance" invisible="state != 'closed'"/>
+                                    <field name="frozen_payment_state" widget="badge" invisible="state != 'closed'"/>
                                     <field name="amount"/>
                                     <field name="payment_method"/>
                                     <field name="state" widget="badge"/>

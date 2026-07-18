@@ -26,8 +26,8 @@
                         <p><strong>Clôturée par :</strong> <span t-field="session.closed_by_id"/></p>
                         <h3>Encaissements</h3>
                         <table class="table table-sm">
-                            <thead><tr><th>Membre</th><th>Dû à la séance</th><th>Montant réglé</th><th>Reste actuel</th><th>Statut</th></tr></thead>
-                            <tbody><tr t-foreach="session.collection_ids" t-as="line"><td><span t-field="line.member_id"/></td><td><span t-field="line.initial_due_amount"/></td><td><span t-field="line.payment_id.amount"/></td><td><span t-field="line.balance"/></td><td><span t-field="line.state"/></td></tr></tbody>
+                            <thead><tr><th>Membre</th><th>Dû à la séance</th><th>Réglé à la clôture</th><th>Reste à la clôture</th><th>État du cycle</th></tr></thead>
+                            <tbody><tr t-foreach="session.collection_ids" t-as="line"><td><span t-field="line.member_id"/></td><td><span t-field="line.initial_due_amount"/></td><td><span t-field="line.frozen_amount_paid"/></td><td><span t-field="line.frozen_balance"/></td><td><span t-field="line.frozen_payment_state"/></td></tr></tbody>
                         </table>
                         <h3>Bénéficiaires attribués</h3>
                         <table class="table table-sm">
