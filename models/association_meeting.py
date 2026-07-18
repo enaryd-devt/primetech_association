@@ -138,9 +138,15 @@ class AssociationMeeting(models.Model):
     committee_id = fields.Many2one(
         "association.committee",
         string="Bureau exécutif",
-        domain="[('company_id', '=', company_id), ('state', '=', 'running')]",
+        domain="[('id', 'in', available_committee_ids)]",
         tracking=True,
         ondelete="restrict",
+    )
+
+    available_committee_ids = fields.Many2many(
+        "association.committee",
+        compute="_compute_available_committee_ids",
+        string="Bureaux disponibles",
     )
 
     special_officer_ids = fields.One2many(
@@ -188,9 +194,55 @@ class AssociationMeeting(models.Model):
                     meeting.special_officer_ids.mapped("member_id")
                 )
 
+    @api.depends("company_id", "meeting_date")
+    def _compute_available_committee_ids(self):
+        Committee = self.env["association.committee"]
+        for meeting in self:
+            meeting_date = meeting.meeting_date or fields.Date.context_today(
+                meeting
+            )
+            meeting.available_committee_ids = Committee.search([
+                ("company_id", "=", meeting.company_id.id),
+                ("state", "=", "running"),
+                ("start_date", "<=", meeting_date),
+                ("end_date", ">=", meeting_date),
+            ])
+
     @api.onchange("committee_mode", "committee_id", "special_officer_ids")
     def _onchange_meeting_committee(self):
         for meeting in self:
+            if meeting.committee_mode == "official" and meeting.committee_id:
+                lines = meeting.committee_id.member_line_ids.sorted(
+                    key=lambda line: (line.sequence, line.id)
+                )
+
+                def member_for_role(keywords):
+                    candidate = lines.filtered(
+                        lambda line: any(
+                            keyword in (line.function_id.name or "").lower()
+                            for keyword in keywords
+                        )
+                    )[:1]
+                    return candidate.member_id if candidate else False
+
+                chairperson = member_for_role(["président", "president"])
+                secretary = member_for_role(["secrétaire", "secretaire"])
+
+                if not chairperson and lines:
+                    chairperson = lines[0].member_id
+                if not secretary:
+                    secretary = next(
+                        (
+                            line.member_id
+                            for line in lines
+                            if line.member_id != chairperson
+                        ),
+                        False,
+                    )
+
+                meeting.chairperson_id = chairperson
+                meeting.secretary_id = secretary
+
             eligible = meeting.eligible_officer_ids
             if meeting.chairperson_id not in eligible:
                 meeting.chairperson_id = False
@@ -957,7 +1009,9 @@ class AssociationMeeting(models.Model):
             # TERMINER LE CYCLE
             # ==================================================
 
-            period.action_close()
+            # Le cycle ouvre son assistant de décision : attribution totale,
+            # attribution partielle avec reliquat ou versement intégral.
+            return period.action_close()
 
             # ==================================================
             # ACTUALISER LA RÉUNION
@@ -1332,6 +1386,24 @@ class AssociationMeeting(models.Model):
             "type": "ir.actions.client",
             "tag": "soft_reload",
         }
+
+    def action_settle_meeting_pot(self):
+        """Open the cycle settlement decision from the meeting.
+
+        Collections remain in the temporary meeting cash until the cycle
+        settlement wizard decides whether all or only the remainder is sent
+        to treasury. This action deliberately creates no fund transaction.
+        """
+        self.ensure_one()
+        if not self.subscription_period_id:
+            raise ValidationError(
+                _("Aucun cycle de cotisation n'est sélectionné.")
+            )
+        if self.subscription_period_id.state != "running":
+            raise ValidationError(
+                _("Le cycle de cotisation doit être en cours.")
+            )
+        return self.action_close_subscription_cycle()
 
     @api.depends(
         "subscription_id",

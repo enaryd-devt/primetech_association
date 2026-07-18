@@ -715,6 +715,8 @@
                                         <field name="committee_mode"
                                                readonly="state == 'closed'"/>
 
+                                        <field name="available_committee_ids" invisible="1"/>
+
                                         <field name="committee_id"
                                                invisible="committee_mode != 'official'"
                                                required="committee_mode == 'official'"
@@ -921,6 +923,15 @@
                                             or not subscription_period_id
                                         "
                                         confirm="Voulez-vous réellement terminer le cycle courant ?"/>
+
+                                    <button
+                                        name="action_settle_meeting_pot"
+                                        type="object"
+                                        string="Solder et verser le reliquat"
+                                        icon="fa-bank"
+                                        class="btn-primary"
+                                        invisible="state == 'closed' or not subscription_period_id"
+                                        confirm="Cette action ouvre la décision de clôture du cycle. Le reliquat ne sera versé qu'après confirmation."/>
 
                                     <button
                                         name="action_open_next_subscription_cycle"
