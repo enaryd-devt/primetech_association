@@ -344,7 +344,16 @@ class AssociationPayment(models.Model):
 
         for record in self:
 
-            if record.payment_source != "external":
+            # Les cotisations sont d'abord conservées dans la caisse du
+            # cycle. Elles ne doivent jamais créer un mouvement de trésorerie
+            # au moment de l'encaissement, quelle que soit leur origine.
+            # Seul l'assistant de clôture du cycle verse le reliquat décidé.
+            if (
+                record.payment_source != "external"
+                or record.subscription_period_id
+                or record.has_allocations
+                or record.line_ids
+            ):
                 continue
 
             if not record.receipt_account_id:
@@ -637,7 +646,11 @@ class AssociationPayment(models.Model):
 
             if record.payment_source == "external":
 
-                if not record.receipt_account_id:
+                if (
+                    not record.subscription_period_id
+                    and not record.has_allocations
+                    and not record.receipt_account_id
+                ):
 
                     raise ValidationError(
                         _(

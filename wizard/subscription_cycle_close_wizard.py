@@ -293,6 +293,14 @@ class AssociationSubscriptionCycleCloseWizard(
                 "association.fund.transaction"
             ]
 
+        if self.period_id.state != "running":
+            raise ValidationError(
+                _(
+                    "Le reliquat ne peut être versé que lors de la "
+                    "clôture d'un cycle en cours."
+                )
+            )
+
         if not self.fund_id:
 
             raise ValidationError(

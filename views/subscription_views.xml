@@ -908,7 +908,7 @@
 
                                 <field
                                     name="receipt_account_id"
-                                    string="Compte de versement"
+                                    string="Compte de versement à la clôture"
                                     domain="[
                                         ('company_id', '=', company_id),
                                         ('active', '=', True)
@@ -918,7 +918,7 @@
                                         'no_create_edit': True
                                     }"
                                     readonly="state != 'draft'"
-                                    help="Compte utilisé seulement si le reliquat est versé en trésorerie à la clôture du cycle."/>
+                                    help="Compte proposé à la clôture du cycle si un reliquat doit être versé en trésorerie. Aucun encaissement individuel n'y est enregistré."/>
 
                                 <field
                                     name="penalty_enabled"

@@ -641,19 +641,9 @@ class AssociationSubscriptionPaymentWizard(models.TransientModel):
         # COMPTE DE VERSEMENT
         # ======================================================
 
-        receipt_account = subscription.receipt_account_id
-        if not receipt_account and not self.meeting_id:
-            raise ValidationError(
-                _(
-                    "Aucun compte de versement n'est défini sur la "
-                    "cotisation %(subscription)s."
-                )
-                % {"subscription": subscription.display_name}
-            )
-
         self.period_id = period
         self.member_id = member
-        self.receipt_account_id = receipt_account
+        self.receipt_account_id = False
 
         # ======================================================
         # RECALCUL AVANT PAIEMENT
@@ -699,9 +689,9 @@ class AssociationSubscriptionPaymentWizard(models.TransientModel):
                 "meeting_cash" if self.meeting_id else "external"
             ),
             "has_allocations": True,
-            "receipt_account_id": (
-                False if self.meeting_id else receipt_account.id
-            ),
+            # Le compte de versement est choisi uniquement pendant la
+            # clôture du cycle. Il ne fait pas partie de l'encaissement.
+            "receipt_account_id": False,
             "payment_method": self.payment_method or "cash",
             "payment_reference": (
                 self.payment_reference
