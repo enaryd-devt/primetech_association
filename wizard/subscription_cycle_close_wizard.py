@@ -399,6 +399,10 @@ class AssociationSubscriptionCycleCloseWizard(
 
         transaction.action_validate()
 
+        self.period_id.settled_amount = (
+            self.period_id.settled_amount or 0.0
+        ) + amount
+
         return transaction
     
     
