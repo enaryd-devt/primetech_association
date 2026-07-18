@@ -907,16 +907,20 @@ class AssociationMeeting(models.Model):
             )
 
             if not period:
-                raise UserError(
-                    _(
-                        "Aucun cycle en cours n'a été trouvé "
-                        "pour la cotisation %(subscription)s."
-                    )
-                    % {
-                        "subscription":
-                            meeting.subscription_id.display_name,
-                    }
-                )
+                return {
+                    "type": "ir.actions.act_window",
+                    "name": _("Démarrer le cycle suivant"),
+                    "res_model": "association.meeting.subscription.cycle.start.wizard",
+                    "view_mode": "form",
+                    "view_id": self.env.ref(
+                        "primetech_association.view_association_meeting_subscription_cycle_start_wizard_form"
+                    ).id,
+                    "target": "new",
+                    "context": {
+                        "default_meeting_id": meeting.id,
+                        "default_subscription_id": meeting.subscription_id.id,
+                    },
+                }
 
             # ==================================================
             # ATTACHER LE CYCLE À LA RÉUNION
