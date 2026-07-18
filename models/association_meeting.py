@@ -1029,8 +1029,28 @@ class AssociationMeeting(models.Model):
             # TERMINER LE CYCLE
             # ==================================================
 
-            # Le cycle ouvre son assistant de décision : attribution totale,
-            # attribution partielle avec reliquat ou versement intégral.
+            session = meeting.subscription_session_ids.filtered(
+                lambda item: item.period_id == period
+            )[:1]
+            if session:
+                return session.action_open_settlement()
+
+            # Compatibility for historical meetings that have no session.
+            # A zero temporary balance must never open the closing wizard.
+            if (period.available_amount or 0.0) <= 0.01:
+                period.write({"state": "closed"})
+                period.subscription_id.line_ids.write({
+                    "amount_received": 0.0,
+                })
+                period.subscription_id.invalidate_recordset([
+                    "current_period_id",
+                    "period_count",
+                ])
+                return {
+                    "type": "ir.actions.client",
+                    "tag": "reload",
+                }
+
             return period.action_close()
 
             # ==================================================
