@@ -34,6 +34,7 @@ from . import association_expense
 from . import association_fund
 
 from . import association_meeting
+from . import association_meeting_officer
 from . import association_meeting_attendance
 from . import association_meeting_resolution
 from . import association_meeting_collection

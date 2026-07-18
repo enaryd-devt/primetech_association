@@ -918,7 +918,7 @@
                                         'no_create_edit': True
                                     }"
                                     readonly="state != 'draft'"
-                                    required="1"/>
+                                    help="Compte utilisé seulement si le reliquat est versé en trésorerie à la clôture du cycle."/>
 
                                 <field
                                     name="penalty_enabled"
@@ -948,6 +948,15 @@
                                     name="due_date"
                                     string="Échéance"
                                     readonly="state != 'draft'"/>
+
+                                <field name="due_timing"
+                                       string="Règle d'échéance"
+                                       readonly="state != 'draft'"/>
+
+                                <field name="due_days_after_start"
+                                       invisible="due_timing != 'custom_days'"
+                                       required="due_timing == 'custom_days'"
+                                       readonly="state != 'draft'"/>
 
                             </group>
 

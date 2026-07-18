@@ -137,7 +137,6 @@ class AssociationSubscriptionPaymentWizard(models.TransientModel):
     receipt_account_id = fields.Many2one(
         comodel_name="association.fund",
         string="Compte de versement",
-        required=True,
         readonly=True,
     )
 
@@ -643,7 +642,7 @@ class AssociationSubscriptionPaymentWizard(models.TransientModel):
         # ======================================================
 
         receipt_account = subscription.receipt_account_id
-        if not receipt_account:
+        if not receipt_account and not self.meeting_id:
             raise ValidationError(
                 _(
                     "Aucun compte de versement n'est défini sur la "

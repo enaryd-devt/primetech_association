@@ -126,6 +126,36 @@ class AssociationMeeting(models.Model):
     # RESPONSABLES
     # ==========================================================
 
+    committee_mode = fields.Selection(
+        [("official", "Bureau exécutif mandaté"),
+         ("special", "Bureau spécial de séance")],
+        string="Bureau de la séance",
+        required=True,
+        default="official",
+        tracking=True,
+    )
+
+    committee_id = fields.Many2one(
+        "association.committee",
+        string="Bureau exécutif",
+        domain="[('company_id', '=', company_id), ('state', '=', 'running')]",
+        tracking=True,
+        ondelete="restrict",
+    )
+
+    special_officer_ids = fields.One2many(
+        "association.meeting.officer",
+        "meeting_id",
+        string="Bureau spécial de séance",
+        copy=True,
+    )
+
+    eligible_officer_ids = fields.Many2many(
+        "association.member",
+        compute="_compute_eligible_officer_ids",
+        string="Responsables disponibles",
+    )
+
     chairperson_id = fields.Many2one(
         comodel_name="association.member",
         string="Président de séance",
@@ -141,6 +171,76 @@ class AssociationMeeting(models.Model):
         tracking=True,
         domain="[('company_id', '=', company_id)]",
     )
+
+    @api.depends(
+        "committee_mode",
+        "committee_id.member_line_ids.member_id",
+        "special_officer_ids.member_id",
+    )
+    def _compute_eligible_officer_ids(self):
+        for meeting in self:
+            if meeting.committee_mode == "official":
+                meeting.eligible_officer_ids = (
+                    meeting.committee_id.member_line_ids.mapped("member_id")
+                )
+            else:
+                meeting.eligible_officer_ids = (
+                    meeting.special_officer_ids.mapped("member_id")
+                )
+
+    @api.onchange("committee_mode", "committee_id", "special_officer_ids")
+    def _onchange_meeting_committee(self):
+        for meeting in self:
+            eligible = meeting.eligible_officer_ids
+            if meeting.chairperson_id not in eligible:
+                meeting.chairperson_id = False
+            if meeting.secretary_id not in eligible:
+                meeting.secretary_id = False
+
+    @api.constrains(
+        "committee_mode", "committee_id", "special_officer_ids",
+        "chairperson_id", "secretary_id", "meeting_date", "state",
+    )
+    def _check_meeting_committee(self):
+        for meeting in self:
+            if meeting.committee_mode == "official":
+                if meeting.state != "draft" and not meeting.committee_id:
+                    raise ValidationError(_(
+                        "Sélectionnez le bureau exécutif mandaté pour la séance."
+                    ))
+                if not meeting.committee_id:
+                    continue
+                if meeting.meeting_date and not (
+                    meeting.committee_id.start_date
+                    <= meeting.meeting_date
+                    <= meeting.committee_id.end_date
+                ):
+                    raise ValidationError(_(
+                        "La date de réunion est hors du mandat du bureau "
+                        "exécutif sélectionné."
+                    ))
+            elif meeting.committee_mode == "special":
+                roles = set(meeting.special_officer_ids.mapped("role"))
+                if meeting.state != "draft" and not {
+                    "chairperson", "secretary"
+                }.issubset(roles):
+                    raise ValidationError(_(
+                        "Le bureau spécial doit comporter un président "
+                        "et un secrétaire de séance."
+                    ))
+            if meeting.state != "draft":
+                if not meeting.chairperson_id or not meeting.secretary_id:
+                    raise ValidationError(_(
+                        "Définissez le président et le secrétaire de séance."
+                    ))
+                if (
+                    meeting.chairperson_id not in meeting.eligible_officer_ids
+                    or meeting.secretary_id not in meeting.eligible_officer_ids
+                ):
+                    raise ValidationError(_(
+                        "Les responsables de séance doivent appartenir au "
+                        "bureau sélectionné."
+                    ))
 
     # ==========================================================
     # CONVOCATION
@@ -1087,13 +1187,6 @@ class AssociationMeeting(models.Model):
     def action_allocate_subscription_pot(self):
         self.ensure_one()
 
-        if self.pot_settlement_state == "settled":
-            raise ValidationError(
-                _(
-                    "La caisse temporaire est déjà soldée. "
-                    "Aucune nouvelle attribution n'est possible."
-                )
-            )
 
         period = self.subscription_period_id
 
@@ -1254,100 +1347,6 @@ class AssociationMeeting(models.Model):
             "tag": "soft_reload",
         }
 
-    def action_settle_meeting_pot(self):
-        """Verser une seule fois le reliquat de la caisse temporaire."""
-        Transaction = self.env["association.fund.transaction"]
-
-        for meeting in self:
-            if meeting.pot_settlement_state == "settled":
-                raise UserError(
-                    _("La caisse temporaire de cette réunion est déjà soldée.")
-                )
-            if not meeting.subscription_period_id:
-                raise ValidationError(
-                    _("Aucun cycle de cotisation n'est lié à la réunion.")
-                )
-
-            pending = meeting.collection_ids.filtered(
-                lambda line: line.state == "pending"
-                and (line.amount or 0.0) > 0
-            )
-            if pending:
-                raise ValidationError(
-                    _(
-                        "Traitez ou annulez tous les encaissements saisis "
-                        "avant de solder la caisse."
-                    )
-                )
-
-            unpaid = meeting.allocation_ids.filtered(
-                lambda allocation: allocation.meeting_id == meeting
-                and allocation.state == "confirmed"
-            )
-            if unpaid:
-                raise ValidationError(
-                    _(
-                        "Marquez toutes les attributions confirmées comme "
-                        "remises avant de solder la caisse."
-                    )
-                )
-
-            amount = meeting.pot_available_amount or 0.0
-            transaction = False
-            if amount > 0:
-                fund = (
-                    meeting.pot_settlement_fund_id
-                    or meeting.subscription_id.receipt_account_id
-                )
-                if not fund:
-                    raise ValidationError(
-                        _("Sélectionnez le compte de versement final.")
-                    )
-
-                transaction = Transaction.search([
-                    ("origin_model", "=", meeting._name),
-                    ("origin_res_id", "=", meeting.id),
-                    ("transaction_type", "=", "in"),
-                    ("state", "!=", "cancelled"),
-                ], limit=1)
-                if not transaction:
-                    transaction = Transaction.create({
-                        "fund_id": fund.id,
-                        "company_id": meeting.company_id.id,
-                        "transaction_type": "in",
-                        "amount": amount,
-                        "transaction_date": fields.Date.context_today(meeting),
-                        "description": _(
-                            "Versement final de la caisse de réunion %s"
-                        ) % meeting.display_name,
-                        "origin_model": meeting._name,
-                        "origin_res_id": meeting.id,
-                        "origin_reference": meeting.name,
-                    })
-                    transaction.action_validate()
-                meeting.pot_settlement_fund_id = fund
-
-            meeting.write({
-                "pot_settlement_state": "settled",
-                "pot_settlement_transaction_id": (
-                    transaction.id if transaction else False
-                ),
-            })
-            if amount > 0:
-                period = meeting.subscription_period_id
-                period.settled_amount = (
-                    period.settled_amount or 0.0
-                ) + amount
-            meeting.message_post(body=_(
-                "Caisse temporaire soldée. Versement final : "
-                "%(amount).2f %(currency)s."
-            ) % {
-                "amount": amount,
-                "currency": meeting.currency_id.name or "",
-            })
-
-        return True
-    
     @api.depends(
         "subscription_id",
         "subscription_period_id",

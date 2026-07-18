@@ -50,6 +50,7 @@ Gestion financière
         "data/member_category_data.xml",
         "data/member_function_data.xml",
         "data/bank_sequence.xml",
+        "data/association_cron.xml",
 
         # =====================================================
         # VIEWS

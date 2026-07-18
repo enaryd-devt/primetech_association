@@ -712,16 +712,27 @@
 
                                     <group>
 
+                                        <field name="committee_mode"
+                                               readonly="state == 'closed'"/>
+
+                                        <field name="committee_id"
+                                               invisible="committee_mode != 'official'"
+                                               required="committee_mode == 'official'"
+                                               readonly="state == 'closed'"
+                                               options="{'no_create': true}"/>
+
+                                        <field name="eligible_officer_ids" invisible="1"/>
+
                                         <field
                                             name="chairperson_id"
-                                            domain="[('company_id', '=', company_id)]"
+                                            domain="[('id', 'in', eligible_officer_ids)]"
                                             readonly="state == 'closed'"
                                             options="{'no_create': true}"
                                         />
 
                                         <field
                                             name="secretary_id"
-                                            domain="[('company_id', '=', company_id)]"
+                                            domain="[('id', 'in', eligible_officer_ids)]"
                                             readonly="state == 'closed'"
                                             options="{'no_create': true}"
                                         />
@@ -733,6 +744,17 @@
                                         />
 
                                     </group>
+
+                                    <field name="special_officer_ids"
+                                           invisible="committee_mode != 'special'"
+                                           readonly="state == 'closed'">
+                                        <list editable="bottom">
+                                            <field name="sequence" widget="handle"/>
+                                            <field name="member_id"/>
+                                            <field name="role"/>
+                                            <field name="note" optional="show"/>
+                                        </list>
+                                    </field>
 
                                 </div>
 
@@ -918,35 +940,6 @@
                                 </div>
 
                             </div>
-
-                            <div class="border rounded-3 p-3 mb-2"
-                                 invisible="not subscription_period_id">
-                                <div class="d-flex flex-wrap align-items-end gap-3">
-                                    <div class="flex-grow-1">
-                                        <label for="pot_settlement_fund_id"/>
-                                        <field name="pot_settlement_fund_id"
-                                               readonly="pot_settlement_state == 'settled'"/>
-                                    </div>
-                                    <div>
-                                        <label for="pot_settlement_state"/>
-                                        <field name="pot_settlement_state" widget="badge"/>
-                                    </div>
-                                    <button name="action_settle_meeting_pot"
-                                            type="object"
-                                            string="Solder et verser le reliquat"
-                                            icon="fa-bank"
-                                            class="btn-primary"
-                                            invisible="pot_settlement_state == 'settled'"
-                                            confirm="Confirmer le règlement définitif de la caisse temporaire ?"/>
-                                </div>
-                                <field name="pot_settlement_transaction_id"
-                                       invisible="not pot_settlement_transaction_id"/>
-                                <div class="text-muted small mt-2">
-                                    Les encaissements restent dans la caisse temporaire.
-                                    Seul le reliquat final crée un mouvement sur le compte financier.
-                                </div>
-                            </div>
-
 
                             <!-- ===================================================== -->
                             <!-- PILOTAGE DU CYCLE                                     -->
