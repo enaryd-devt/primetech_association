@@ -485,98 +485,22 @@ class AssociationSubscriptionPeriod(models.Model):
     # ==========================================================
 
     def _apply_late_penalty(self):
-
-        today = fields.Date.context_today(self)
-
         for record in self:
-
-            subscription = record.subscription_id
-
-            # ======================================================
-            # PÉNALITÉ DÉSACTIVÉE
-            # ======================================================
-
-            if not subscription.penalty_enabled:
-                continue
-
-            # ======================================================
-            # DÉJÀ APPLIQUÉE
-            # ======================================================
-
-            if record.penalty_applied:
-                continue
-
-            # ======================================================
-            # PAS DE DATE LIMITE
-            # ======================================================
-
-            if not record.penalty_deadline:
-                continue
-
-            # ======================================================
-            # DÉLAI NON DÉPASSÉ
-            # ======================================================
-
-            if today <= record.penalty_deadline:
-                continue
-
-            # ======================================================
-            # CYCLE DÉJÀ PAYÉ
-            # ======================================================
-
-            if record.payment_state == "paid":
-                continue
-
-            # ======================================================
-            # CALCUL DE LA PÉNALITÉ
-            # ======================================================
-
-            penalty_amount = 0.0
-
-            if subscription.penalty_type == "fixed":
-
-                penalty_amount = (
-                    subscription.penalty_amount
-                    or 0.0
-                )
-
-            elif subscription.penalty_type == "percentage":
-
-                penalty_amount = (
-                    (record.amount_due or 0.0)
-                    * (subscription.penalty_rate or 0.0)
-                    / 100.0
-                )
-
-            # ======================================================
-            # AUCUNE PÉNALITÉ
-            # ======================================================
-
-            if penalty_amount <= 0:
-                continue
-
-            # ======================================================
-            # APPLICATION
-            # ======================================================
-
-            record.write(
-                {
-                    "penalty_amount":
-                        penalty_amount,
-
-                    "penalty_applied":
-                        True,
-
-                    "penalty_date":
-                        today,
-
-                    "penalty_reason":
-                        _(
-                            "Pénalité de retard appliquée "
-                            "après dépassement du délai de grâce."
-                        ),
-                }
-            )
+            lines = record._get_subscription_lines()
+            lines._apply_late_penalty()
+            penalized = lines.filtered("penalty_applied")
+            record.write({
+                "penalty_amount": sum(penalized.mapped("penalty_amount")),
+                "penalty_applied": bool(penalized),
+                "penalty_date": max(
+                    penalized.mapped("penalty_date"), default=False
+                ),
+                "penalty_reason": (
+                    _("Pénalités calculées selon l'échéance du cycle.")
+                    if penalized else False
+                ),
+            })
+        return True
 
     def action_start(self):
 
@@ -624,6 +548,14 @@ class AssociationSubscriptionPeriod(models.Model):
                             running_period.display_name,
                     }
                 )
+
+            if period.sequence > 1:
+                period.subscription_id.line_ids.write({
+                    "penalty_amount": 0.0,
+                    "penalty_applied": False,
+                    "penalty_date": False,
+                    "penalty_reason": False,
+                })
 
             period.state = "running"
 

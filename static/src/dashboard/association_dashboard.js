@@ -36,10 +36,13 @@ export class AssociationDashboard extends Component {
                 meetings: {},
                 subscriptions: {},
                 payments: {},
+                expenses: {breakdown: []},
                 treasury: {},
-                penalties: {},
+                penalties: {recent: []},
                 recent_payments: [],
                 next_meeting: false,
+                upcoming_meetings: [],
+                recent_members: [],
                 currency: {},
             },
 
@@ -100,6 +103,47 @@ export class AssociationDashboard extends Component {
             }
         ).format(value);
 
+    }
+
+    todayLabel() {
+        return new Intl.DateTimeFormat("fr-FR", {
+            day: "2-digit", month: "short", year: "numeric",
+        }).format(new Date());
+    }
+
+    get memberPercent() {
+        const total = Number(this.state.data.members.total || 0);
+        return total ? Math.round((Number(this.state.data.members.active || 0) / total) * 100) : 0;
+    }
+
+    get expensePrimaryPercent() {
+        const first = (this.state.data.expenses.breakdown || [])[0];
+        return first ? Number(first.percentage || 0) : 0;
+    }
+
+    get kpis() {
+        const data = this.state.data;
+        return [
+            {label: "Membres actifs", value: this.formatAmount(data.members.active), icon: "fa-users", color: "purple", note: "Effectif actuel"},
+            {label: "Total membres", value: this.formatAmount(data.members.total), icon: "fa-user-plus", color: "green", note: "Base des adhérents"},
+            {label: "Cotisations collectées", value: this.formatAmount(data.payments.total), currency: true, icon: "fa-handshake-o", color: "orange", note: "Paiements confirmés"},
+            {label: "Trésorerie", value: this.formatAmount(data.treasury.balance), currency: true, icon: "fa-credit-card", color: "blue", note: "Solde disponible"},
+            {label: "Événements", value: this.formatAmount(data.meetings.upcoming), icon: "fa-calendar", color: "purple", note: "À venir"},
+            {label: "Pénalités à traiter", value: this.formatAmount(data.penalties.pending), icon: "fa-gavel", color: "red", note: "À régulariser", negative: true},
+        ];
+    }
+
+    get chartBars() {
+        const months = this.state.data.payments.monthly || [];
+        const maximum = Math.max(...months.map((item) => Number(item.amount)), 1);
+        return months.map((item) => ({
+            ...item,
+            height: Math.max(3, Math.round(Number(item.amount) * 100 / maximum)),
+        }));
+    }
+
+    get sections() {
+        return this.state.data.members.categories || [];
     }
 
 
@@ -165,6 +209,20 @@ export class AssociationDashboard extends Component {
             "primetech_association.action_penalty"
         );
 
+    }
+
+    openPenalty(penaltyId) {
+        if (!penaltyId) {
+            return;
+        }
+        return this.action.doAction({
+            type: "ir.actions.act_window",
+            name: "Sanction disciplinaire",
+            res_model: "association.penalty",
+            res_id: penaltyId,
+            views: [[false, "form"]],
+            target: "current",
+        });
     }
 
 

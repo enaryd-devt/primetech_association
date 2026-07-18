@@ -269,17 +269,33 @@
 
                         <div class="col-lg-4 col-md-4 col-12">
 
-                            <group>
+                            <div class="rounded-3 border p-3 h-100"
+                                 style="background: linear-gradient(135deg, rgba(25, 135, 84, .10), rgba(25, 135, 84, .025)); border-left: 4px solid #198754 !important;">
 
-                                <field name="start_date"/>
+                                <div class="d-flex align-items-center mb-3">
+                                    <span class="d-flex align-items-center justify-content-center rounded-circle bg-success-subtle text-success me-2"
+                                          style="width: 34px; height: 34px;">
+                                        <i class="fa fa-calendar" title="Mandat"/>
+                                    </span>
+                                    <div>
+                                        <div class="fw-bold">Période du mandat</div>
+                                        <div class="text-muted small">Validité du bureau exécutif</div>
+                                    </div>
+                                </div>
 
-                                <field name="end_date"/>
+                                <div class="row g-2">
+                                    <div class="col-6">
+                                        <label for="start_date" class="form-label text-muted small mb-1">Début</label>
+                                        <field name="start_date" nolabel="1" class="fw-semibold"/>
+                                    </div>
+                                    <div class="col-6">
+                                        <label for="end_date" class="form-label text-muted small mb-1">Fin</label>
+                                        <field name="end_date" nolabel="1" class="fw-semibold"/>
+                                    </div>
+                                </div>
 
-                                <field
-                                    name="company_id"
-                                    groups="base.group_multi_company"/>
-
-                            </group>
+                                <field name="company_id" groups="base.group_multi_company" class="mt-2"/>
+                            </div>
 
                         </div>
 
