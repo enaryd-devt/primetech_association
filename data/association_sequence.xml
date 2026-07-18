@@ -36,17 +36,6 @@
     </record>
 
     <!-- ========================================================= -->
-    <!-- MEETING -->
-    <!-- ========================================================= -->
-
-    <record id="seq_association_meeting" model="ir.sequence">
-        <field name="name">Association Meeting</field>
-        <field name="code">association.meeting</field>
-        <field name="prefix">MTG/%(year)s/</field>
-        <field name="padding">5</field>
-    </record>
-
-    <!-- ========================================================= -->
     <!-- DONATION -->
     <!-- ========================================================= -->
 
@@ -76,17 +65,6 @@
         <field name="name">Association Income</field>
         <field name="code">association.income</field>
         <field name="prefix">INC/%(year)s/</field>
-        <field name="padding">5</field>
-    </record>
-
-    <!-- ========================================================= -->
-    <!-- MEMBER CARD -->
-    <!-- ========================================================= -->
-
-    <record id="seq_association_card" model="ir.sequence">
-        <field name="name">Association Member Card</field>
-        <field name="code">association.card</field>
-        <field name="prefix">CARD/%(year)s/</field>
         <field name="padding">5</field>
     </record>
 

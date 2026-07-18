@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 
-from odoo import api, models
+from dateutil.relativedelta import relativedelta
+
+from odoo import api, fields, models
 
 
 class AssociationDashboard(models.AbstractModel):
@@ -15,6 +17,7 @@ class AssociationDashboard(models.AbstractModel):
     def get_dashboard_data(self):
 
         company = self.env.company
+        today = fields.Date.context_today(self)
 
         Member = self.env["association.member"]
         Meeting = self.env["association.meeting"]
@@ -22,6 +25,7 @@ class AssociationDashboard(models.AbstractModel):
         Subscription = self.env["association.subscription"]
         Fund = self.env["association.fund"]
         Penalty = self.env["association.penalty"]
+        Expense = self.env["association.expense"]
 
         # ======================================================
         # MEMBRES
@@ -43,6 +47,25 @@ class AssociationDashboard(models.AbstractModel):
             active_member_domain
         )
 
+        member_categories = []
+        for group in Member.read_group(
+            member_domain,
+            ["category_id"],
+            ["category_id"],
+            lazy=False,
+        ):
+            category = group.get("category_id")
+            member_categories.append({
+                "name": category[1] if category else "Sans catégorie",
+                "count": group["__count"],
+                "percentage": round(
+                    group["__count"] * 100 / member_count
+                ) if member_count else 0,
+            })
+        member_categories.sort(
+            key=lambda item: item["count"], reverse=True
+        )
+
         # ======================================================
         # RÉUNIONS
         # ======================================================
@@ -52,6 +75,7 @@ class AssociationDashboard(models.AbstractModel):
         ]
 
         upcoming_meeting_domain = meeting_domain + [
+            ("meeting_date", ">=", today),
             (
                 "state",
                 "in",
@@ -70,6 +94,12 @@ class AssociationDashboard(models.AbstractModel):
             upcoming_meeting_domain,
             order="meeting_date asc, id asc",
             limit=1,
+        )
+
+        upcoming_meetings = Meeting.search(
+            upcoming_meeting_domain,
+            order="meeting_date asc, id asc",
+            limit=4,
         )
 
         # ======================================================
@@ -164,7 +194,6 @@ class AssociationDashboard(models.AbstractModel):
                     "state",
                     "in",
                     [
-                        "paid",
                         "confirmed",
                         "collected",
                     ],
@@ -175,6 +204,54 @@ class AssociationDashboard(models.AbstractModel):
         payment_total = sum(
             confirmed_payments.mapped("amount")
         )
+
+        month_start = today.replace(day=1)
+        payment_months = []
+        month_names = [
+            "Janv.", "Févr.", "Mars", "Avr.", "Mai", "Juin",
+            "Juil.", "Août", "Sept.", "Oct.", "Nov.", "Déc.",
+        ]
+        for offset in range(5, -1, -1):
+            start = month_start - relativedelta(months=offset)
+            end = start + relativedelta(months=1)
+            monthly_payments = Payment.search(payment_domain + [
+                ("state", "in", ["collected", "confirmed"]),
+                ("payment_date", ">=", start),
+                ("payment_date", "<", end),
+            ])
+            payment_months.append({
+                "month": month_names[start.month - 1],
+                "amount": sum(monthly_payments.mapped("amount")),
+                "count": len(monthly_payments),
+            })
+
+        validated_expenses = Expense.search([
+            ("company_id", "=", company.id),
+            ("state", "=", "validated"),
+        ])
+        expense_total = sum(validated_expenses.mapped("amount"))
+        expense_labels = dict(
+            Expense._fields["expense_type"]._description_selection(self.env)
+        )
+        expense_totals = {}
+        for expense in validated_expenses:
+            expense_totals[expense.expense_type] = (
+                expense_totals.get(expense.expense_type, 0.0)
+                + expense.amount
+            )
+        expense_breakdown = [
+            {
+                "name": expense_labels.get(code, code or "Autre"),
+                "amount": amount,
+                "percentage": round(amount * 100 / expense_total)
+                if expense_total else 0,
+            }
+            for code, amount in sorted(
+                expense_totals.items(),
+                key=lambda item: item[1],
+                reverse=True,
+            )[:5]
+        ]
 
         # ======================================================
         # TRÉSORERIE
@@ -319,11 +396,52 @@ class AssociationDashboard(models.AbstractModel):
                     "in",
                     [
                         "draft",
-                        "pending",
+                        "validated",
+                        "executed",
                     ],
                 ),
             ]
         )
+
+        active_penalties = Penalty.search(
+            penalty_domain + [
+                ("state", "in", ["validated", "executed"]),
+            ]
+        )
+        penalty_amount_remaining = sum(
+            active_penalties.mapped("amount_remaining")
+        )
+
+        recent_penalties = Penalty.search(
+            penalty_domain,
+            order="incident_date desc, id desc",
+            limit=5,
+        )
+        penalty_state_labels = dict(
+            Penalty._fields["state"]._description_selection(self.env)
+        )
+        penalty_type_labels = dict(
+            Penalty._fields["penalty_type"]._description_selection(self.env)
+        )
+        recent_penalty_values = [
+            {
+                "id": penalty.id,
+                "name": penalty.name or "",
+                "member": penalty.member_id.display_name or "",
+                "type": penalty_type_labels.get(
+                    penalty.penalty_type, penalty.penalty_type or ""
+                ),
+                "state": penalty_state_labels.get(
+                    penalty.state, penalty.state or ""
+                ),
+                "state_code": penalty.state or "",
+                "amount_remaining": penalty.amount_remaining or 0.0,
+                "date": penalty.incident_date.strftime("%d/%m/%Y")
+                if penalty.incident_date
+                else "",
+            }
+            for penalty in recent_penalties
+        ]
 
         # ======================================================
         # DERNIERS ENCAISSEMENTS
@@ -371,6 +489,39 @@ class AssociationDashboard(models.AbstractModel):
                 }
             )
 
+        recent_members = Member.search(
+            member_domain,
+            order="join_date desc, id desc",
+            limit=5,
+        )
+        recent_member_values = [
+            {
+                "id": member.id,
+                "name": member.display_name or "",
+                "state": dict(Member._fields["state"]._description_selection(self.env)).get(
+                    member.state, member.state or ""
+                ),
+                "date": member.join_date.strftime("%d/%m/%Y")
+                if member.join_date
+                else "",
+            }
+            for member in recent_members
+        ]
+
+        upcoming_meeting_values = [
+            {
+                "id": meeting.id,
+                "title": meeting.title or meeting.name or "",
+                "date": meeting.meeting_date.strftime("%d/%m/%Y")
+                if meeting.meeting_date
+                else "",
+                "time": dict(Meeting._fields["start_time"]._description_selection(self.env)).get(
+                    meeting.start_time, meeting.start_time or ""
+                ),
+            }
+            for meeting in upcoming_meetings
+        ]
+
         # ======================================================
         # PROCHAINE RÉUNION
         # ======================================================
@@ -414,6 +565,7 @@ class AssociationDashboard(models.AbstractModel):
         # ======================================================
 
         return {
+            "user_name": self.env.user.name,
             "company": {
                 "id":
                     company.id,
@@ -428,6 +580,8 @@ class AssociationDashboard(models.AbstractModel):
 
                 "active":
                     active_member_count,
+
+                "categories": member_categories[:5],
             },
 
             "meetings": {
@@ -452,6 +606,13 @@ class AssociationDashboard(models.AbstractModel):
 
                 "total":
                     payment_total,
+
+                "monthly": payment_months,
+            },
+
+            "expenses": {
+                "total": expense_total,
+                "breakdown": expense_breakdown,
             },
 
             "treasury": {
@@ -465,10 +626,20 @@ class AssociationDashboard(models.AbstractModel):
 
                 "pending":
                     pending_penalty_count,
+
+                "active": len(active_penalties),
+
+                "amount_remaining": penalty_amount_remaining,
+
+                "recent": recent_penalty_values,
             },
 
             "recent_payments":
                 recent_payment_values,
+
+            "recent_members": recent_member_values,
+
+            "upcoming_meetings": upcoming_meeting_values,
 
             "next_meeting":
                 next_meeting_value,

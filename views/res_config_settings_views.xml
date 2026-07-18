@@ -8,13 +8,36 @@
 
             <form string="Paramètres">
 
-                <sheet>
-
-                    <div class="oe_title">
-                        <h1>PrimeTech Association</h1>
-                    </div>
-
-                </sheet>
+                <app string="Association" name="primetech_association">
+                    <block title="Identification" name="association_identity">
+                        <setting string="Nom de l'association"
+                                 help="Nom affiché dans les documents et les espaces de gestion.">
+                            <field name="association_name" placeholder="Nom de l'association"/>
+                        </setting>
+                        <setting string="Numérotation automatique des membres">
+                            <field name="automatic_member_number"/>
+                            <div class="content-group" invisible="not automatic_member_number">
+                                <label for="membership_prefix"/>
+                                <field name="membership_prefix"/>
+                            </div>
+                        </setting>
+                        <setting string="Photo obligatoire pour les membres">
+                            <field name="require_member_photo"/>
+                        </setting>
+                    </block>
+                    <block title="Cotisations et cartes" name="association_finance">
+                        <setting string="Montant de cotisation par défaut">
+                            <field name="subscription_default_amount"/>
+                        </setting>
+                        <setting string="Autoriser les paiements partiels">
+                            <field name="allow_partial_payment"/>
+                        </setting>
+                        <setting string="Durée de validité des cartes"
+                                 help="Durée exprimée en mois.">
+                            <field name="membership_card_validity"/>
+                        </setting>
+                    </block>
+                </app>
 
             </form>
 
@@ -27,6 +50,7 @@
         <field name="name">Paramètres</field>
         <field name="res_model">res.config.settings</field>
         <field name="view_mode">form</field>
+        <field name="view_id" ref="view_association_settings_form"/>
         <field name="target">inline</field>
 
     </record>
