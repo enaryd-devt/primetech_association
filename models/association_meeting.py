@@ -1473,14 +1473,9 @@ class AssociationMeeting(models.Model):
             if not meeting.subscription_id:
                 continue
 
-            return {
-                "warning": {
-                    "title": _("Utilisez les sessions de cotisation"),
-                    "message": _(
-                        "Ajoutez la cotisation dans l'onglet « Sessions de cotisation ». Le cycle sera alors isolé et verrouillable pour cette réunion."
-                    ),
-                }
-            }
+            meeting.subscription_period_id = (
+                meeting.subscription_id.current_period_id
+            )
     
     def write(self, vals):
 
@@ -2720,7 +2715,18 @@ class AssociationMeeting(models.Model):
                     or _("Nouveau")
                 )
 
-        return super().create(vals_list)
+        meetings = super().create(vals_list)
+        Session = self.env["association.meeting.subscription.session"]
+        for meeting in meetings.filtered("subscription_id"):
+            period = meeting.subscription_id.current_period_id
+            if period:
+                meeting.subscription_period_id = period.id
+                Session.create({
+                    "meeting_id": meeting.id,
+                    "subscription_id": meeting.subscription_id.id,
+                    "period_id": period.id,
+                })
+        return meetings
 
     # ==========================================================
     # STATISTIQUES DE PRÉSENCE
@@ -3366,7 +3372,27 @@ class AssociationMeeting(models.Model):
                 )
             )
 
-        return super().write(vals)
+        result = super().write(vals)
+
+        if vals.get("subscription_id"):
+            Session = self.env["association.meeting.subscription.session"]
+            for meeting in self:
+                period = meeting.subscription_id.current_period_id
+                if not period:
+                    continue
+                session = Session.search([
+                    ("meeting_id", "=", meeting.id),
+                    ("subscription_id", "=", meeting.subscription_id.id),
+                    ("period_id", "=", period.id),
+                ], limit=1)
+                if not session:
+                    Session.create({
+                        "meeting_id": meeting.id,
+                        "subscription_id": meeting.subscription_id.id,
+                        "period_id": period.id,
+                    })
+
+        return result
     
     
     # ==========================================================

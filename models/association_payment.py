@@ -733,6 +733,25 @@ class AssociationPayment(models.Model):
                         )
                     )
                 
+    def _limit_member_account_payment_to_balance(self):
+        """Allow a member account to settle a subscription only up to its balance."""
+        for record in self:
+            if record.payment_source != "member_account":
+                continue
+            available_amount = record.member_account_id.balance or 0.0
+            if available_amount <= 0:
+                continue
+            if record.amount <= available_amount:
+                continue
+
+            amount_left = available_amount
+            for line in record.line_ids.sorted(key=lambda line: line.id):
+                line_amount = min(line.amount_paid or 0.0, amount_left)
+                line.write({"amount_paid": line_amount})
+                amount_left -= line_amount
+
+            record.write({"amount": available_amount})
+
     # ==========================================================
     # DÉBITER LE COMPTE MEMBRE
     # ==========================================================
@@ -1497,6 +1516,8 @@ class AssociationPayment(models.Model):
                     )
                 )
 
+            record._limit_member_account_payment_to_balance()
+
             # ======================================================
             # PASSAGE ENCAISSÉ
             #
@@ -1549,6 +1570,8 @@ class AssociationPayment(models.Model):
                         "peut être validé."
                     )
                 )
+
+            record._limit_member_account_payment_to_balance()
 
             # ======================================================
             # CONTRÔLE MONTANT

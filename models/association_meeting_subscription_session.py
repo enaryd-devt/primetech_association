@@ -215,6 +215,14 @@ class AssociationMeetingSubscriptionSession(models.Model):
             raise ValidationError(_("Validez ou annulez tous les encaissements en attente."))
         if self.period_id.state != "running":
             raise ValidationError(_("Le cycle de cotisation n'est plus en cours."))
+
+        if (self.period_id.available_amount or 0.0) <= 0.01:
+            self._close_without_treasury_transfer()
+            return {
+                "type": "ir.actions.client",
+                "tag": "reload",
+            }
+
         self.state = "decision"
         action = self.period_id.action_close()
         action["context"] = dict(
@@ -222,6 +230,23 @@ class AssociationMeetingSubscriptionSession(models.Model):
             default_meeting_subscription_session_id=self.id,
         )
         return action
+
+    def _close_without_treasury_transfer(self):
+        """Close an empty or fully allocated temporary meeting cash directly."""
+        self.ensure_one()
+        if self.period_id.available_amount > 0.01:
+            raise ValidationError(_("Un reliquat doit être traité avant la clôture."))
+        self.period_id.write({"state": "closed"})
+        self.subscription_id.line_ids.write({"amount_received": 0.0})
+        self.subscription_id.invalidate_recordset(["current_period_id", "period_count"])
+        self.subscription_id.modified(["current_period_id", "period_count"])
+        self.action_mark_closed()
+        self.period_id.message_post(
+            body=_(
+                "Le cycle a été terminé sans versement en trésorerie : la caisse temporaire est nulle ou entièrement attribuée."
+            )
+        )
+        return True
 
     def action_mark_closed(self):
         for session in self:
