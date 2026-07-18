@@ -933,21 +933,6 @@
                                         invisible="state == 'closed' or not subscription_period_id"
                                         confirm="Cette action ouvre la décision de clôture du cycle. Le reliquat ne sera versé qu'après confirmation."/>
 
-                                    <button
-                                        name="action_open_next_subscription_cycle"
-                                        type="object"
-                                        string="Ouvrir le cycle suivant"
-                                        icon="fa-forward"
-                                        class="btn-primary"
-                                        invisible="
-                                            state == 'closed'
-                                            or not subscription_id
-                                            or not can_open_next_subscription_cycle
-                                        "
-                                        confirm="Aucun cycle n'est actuellement en cours pour cette cotisation. Voulez-vous ouvrir le cycle suivant ?"/>
-
-
-
                                 </div>
 
                             </div>

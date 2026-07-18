@@ -75,3 +75,50 @@ class AssociationMeetingOfficer(models.Model):
                 officer.meeting_id.chairperson_id = officer.member_id
             elif officer.role == "secretary":
                 officer.meeting_id.secretary_id = officer.member_id
+
+    def _sync_meeting_responsibles(self):
+        for meeting in self.mapped("meeting_id"):
+            if meeting.committee_mode != "special":
+                continue
+            officers = meeting.special_officer_ids
+            chairperson = officers.filtered(
+                lambda officer: officer.role == "chairperson"
+            )[:1].member_id
+            secretary = officers.filtered(
+                lambda officer: officer.role == "secretary"
+            )[:1].member_id
+            meeting.write({
+                "chairperson_id": chairperson.id,
+                "secretary_id": secretary.id,
+            })
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        officers = super().create(vals_list)
+        officers._sync_meeting_responsibles()
+        return officers
+
+    def write(self, vals):
+        result = super().write(vals)
+        if {"member_id", "role", "meeting_id"}.intersection(vals):
+            self._sync_meeting_responsibles()
+        return result
+
+    def unlink(self):
+        meetings = self.mapped("meeting_id")
+        result = super().unlink()
+        for meeting in meetings:
+            if meeting.committee_mode != "special":
+                continue
+            officers = meeting.special_officer_ids
+            chairperson = officers.filtered(
+                lambda officer: officer.role == "chairperson"
+            )[:1].member_id
+            secretary = officers.filtered(
+                lambda officer: officer.role == "secretary"
+            )[:1].member_id
+            meeting.write({
+                "chairperson_id": chairperson.id,
+                "secretary_id": secretary.id,
+            })
+        return result

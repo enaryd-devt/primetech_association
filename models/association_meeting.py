@@ -1055,6 +1055,12 @@ class AssociationMeeting(models.Model):
 
         self.ensure_one()
 
+        raise UserError(
+            _(
+                "Le cycle suivant doit être démarré depuis une nouvelle réunion, dans l'onglet « Sessions de cotisation »."
+            )
+        )
+
         # ======================================================
         # CONTRÔLE DE LA RÉUNION
         # ======================================================
@@ -1463,55 +1469,18 @@ class AssociationMeeting(models.Model):
             if not meeting.subscription_id:
                 continue
 
-            current_period = (
-                meeting.subscription_id.current_period_id
-            )
-
-            if not current_period:
-                return {
-                    "warning": {
-                        "title": _(
-                            "Aucun cycle actif"
-                        ),
-                        "message": _(
-                            "Cette cotisation ne possède "
-                            "aucun cycle actif.\n\n"
-                            "Ouvrez un nouveau cycle depuis "
-                            "la fiche de cotisation."
-                        ),
-                    }
+            return {
+                "warning": {
+                    "title": _("Utilisez les sessions de cotisation"),
+                    "message": _(
+                        "Ajoutez la cotisation dans l'onglet « Sessions de cotisation ». Le cycle sera alors isolé et verrouillable pour cette réunion."
+                    ),
                 }
-
-            if current_period.state != "running":
-                return {
-                    "warning": {
-                        "title": _(
-                            "Cycle non démarré"
-                        ),
-                        "message": _(
-                            "Le cycle courant de cette cotisation "
-                            "n'est pas en cours."
-                        ),
-                    }
-                }
-
-            meeting.subscription_period_id = (
-                current_period
-            )
+            }
     
     def write(self, vals):
 
         result = super().write(vals)
-
-        if "subscription_id" in vals:
-
-            for meeting in self:
-
-                meeting.subscription_period_id = (
-                    meeting.subscription_id.current_period_id
-                    if meeting.subscription_id
-                    else False
-                )
 
         return result
 

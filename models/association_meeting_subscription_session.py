@@ -33,7 +33,7 @@ class AssociationMeetingSubscriptionSession(models.Model):
         string="Cotisation", tracking=True, index=True,
     )
     period_id = fields.Many2one(
-        "association.subscription.period", required=True, ondelete="restrict",
+        "association.subscription.period", ondelete="restrict",
         string="Cycle de cotisation", tracking=True, index=True,
         domain="[('subscription_id', '=', subscription_id), ('state', '=', 'running')]",
     )
@@ -75,6 +75,8 @@ class AssociationMeetingSubscriptionSession(models.Model):
     @api.constrains("subscription_id", "period_id", "meeting_id")
     def _check_session_values(self):
         for session in self:
+            if not session.period_id:
+                continue
             if session.period_id.subscription_id != session.subscription_id:
                 raise ValidationError(
                     _("Le cycle sélectionné ne correspond pas à la cotisation.")
@@ -83,6 +85,44 @@ class AssociationMeetingSubscriptionSession(models.Model):
                 raise ValidationError(
                     _("Le cycle et la réunion doivent appartenir à la même filiale.")
                 )
+
+    @api.onchange("subscription_id")
+    def _onchange_subscription_id(self):
+        for session in self:
+            session.period_id = session.subscription_id.current_period_id
+            if session.subscription_id and not session.period_id:
+                return {
+                    "warning": {
+                        "title": _("Aucun cycle en cours"),
+                        "message": _(
+                            "Le dernier cycle est terminé. Cliquez sur « Démarrer le cycle suivant » pour ouvrir un nouveau cycle dans cette nouvelle réunion."
+                        ),
+                    }
+                }
+
+    def action_start_next_cycle(self):
+        self.ensure_one()
+        if self.state != "draft":
+            raise UserError(_("Le cycle suivant ne peut être démarré que depuis une session brouillon."))
+        if not self.subscription_id:
+            raise ValidationError(_("Sélectionnez une cotisation avant de démarrer son cycle."))
+        previous_session = self.meeting_id.subscription_session_ids.filtered(
+            lambda session: session != self
+            and session.subscription_id == self.subscription_id
+            and session.state == "closed"
+        )
+        if previous_session:
+            raise UserError(
+                _(
+                    "Cette cotisation a déjà été clôturée dans cette réunion. Créez une nouvelle réunion avant de démarrer le cycle suivant."
+                )
+            )
+        if self.subscription_id.current_period_id:
+            self.period_id = self.subscription_id.current_period_id
+            return True
+        self.subscription_id.action_open_next_period()
+        self.period_id = self.subscription_id.current_period_id
+        return True
 
     @api.depends("collection_ids.state", "collection_ids.payment_id.amount")
     def _compute_statistics(self):
@@ -100,6 +140,8 @@ class AssociationMeetingSubscriptionSession(models.Model):
         for session in self:
             if session.meeting_id.state == "closed":
                 raise UserError(_("La réunion est déjà clôturée."))
+            if not session.period_id:
+                raise ValidationError(_("Démarrez ou sélectionnez un cycle de cotisation."))
             if session.period_id.state != "running":
                 raise ValidationError(_("Seul un cycle en cours peut être encaissé."))
             if session.state == "draft":
@@ -170,6 +212,11 @@ class AssociationMeetingSubscriptionSession(models.Model):
                 "closed_by_id": self.env.user.id,
                 "closed_at": fields.Datetime.now(),
             })
+            if session.meeting_id.subscription_period_id == session.period_id:
+                session.meeting_id.write({
+                    "subscription_id": False,
+                    "subscription_period_id": False,
+                })
         return True
 
     def action_print_report(self):
