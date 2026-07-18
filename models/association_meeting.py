@@ -787,18 +787,7 @@ class AssociationMeeting(models.Model):
                 and allocation.state in ("confirmed", "paid")
                 and allocation.beneficiary_id
             )
-            # Les anciens encaissements créés avant l'ajout du lien
-            # ``meeting_id`` restent visibles dans la réunion. Ce repli
-            # permet de présenter leur montant dans les indicateurs du cycle.
-            if not meeting_payments:
-                collected_amount = sum(
-                    meeting.subscription_line_ids.mapped("amount_paid")
-                )
-            allocated_amount = sum(allocations.mapped("amount"))
 
-            meeting_payments = meeting.meeting_payment_ids.filtered(
-                lambda payment: payment.state == "confirmed"
-            )
             collected_amount = sum(
                 payment.amount
                 - (
@@ -806,12 +795,15 @@ class AssociationMeeting(models.Model):
                     if payment.surplus_action == "refund"
                     else 0.0
                 )
-                for payment in meeting_payments
+                for payment in meeting.meeting_payment_ids
+                if payment.state == "confirmed"
             )
             # Les anciens encaissements créés avant l'ajout du lien
             # ``meeting_id`` restent visibles dans la réunion. Ce repli
             # permet de présenter leur montant dans les indicateurs du cycle.
-            if not meeting_payments:
+            if not meeting.meeting_payment_ids.filtered(
+                lambda payment: payment.state == "confirmed"
+            ):
                 collected_amount = sum(
                     meeting.subscription_line_ids.mapped("amount_paid")
                 )
