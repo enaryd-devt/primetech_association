@@ -29,7 +29,12 @@ class ResConfigSettings(models.TransientModel):
         config_parameter="primetech_association.membership_card_validity",
     )
 
-    default_subscription_amount = fields.Float(
+    # Fields prefixed with ``default_`` have a special meaning on
+    # res.config.settings: Odoo treats them as defaults for another model and
+    # consequently requires a ``default_model`` attribute.  This setting is a
+    # regular system parameter, so keep the existing parameter key while using
+    # a non-reserved field name.
+    subscription_default_amount = fields.Float(
         string="Default Subscription Amount",
         default=0.0,
         config_parameter="primetech_association.default_subscription_amount",

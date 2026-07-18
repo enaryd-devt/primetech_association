@@ -131,6 +131,29 @@ class AssociationSubscription(models.Model):
         index=True,
     )
 
+    due_timing = fields.Selection(
+        selection=[
+            ("period_start", "Au début de chaque période"),
+            ("period_end", "À la fin de chaque période"),
+            ("custom_days", "Nombre de jours après le début"),
+        ],
+        string="Règle d'échéance",
+        required=True,
+        default="period_end",
+        tracking=True,
+        help=(
+            "La période est calculée selon le type de cotisation "
+            "(journalière, hebdomadaire, mensuelle, etc.), puis cette "
+            "règle détermine sa date d'échéance."
+        ),
+    )
+
+    due_days_after_start = fields.Integer(
+        string="Jours après le début",
+        default=0,
+        tracking=True,
+    )
+
     amount = fields.Monetary(
         string="Montant par membre",
         currency_field="currency_id",
@@ -764,7 +787,7 @@ class AssociationSubscription(models.Model):
             "sequence": sequence,
             "period_start_date": start_date,
             "period_end_date": end_date,
-            "due_date": end_date,
+            "due_date": self._get_period_due_date(start_date, end_date),
             "state": "draft",
         }
 
@@ -854,13 +877,37 @@ class AssociationSubscription(models.Model):
                 or start_date
             )
 
-        due_date = end_date
+        due_date = (
+            self.due_date
+            if not previous_period and self.due_date
+            else self._get_period_due_date(start_date, end_date)
+        )
 
         return (
             start_date,
             end_date,
             due_date,
         )
+
+    def _get_period_due_date(self, start_date, end_date):
+        """Return the deadline configured for a type-derived period."""
+        self.ensure_one()
+        if self.due_timing == "period_start":
+            return start_date
+        if self.due_timing == "custom_days":
+            due_date = start_date + timedelta(
+                days=max(self.due_days_after_start or 0, 0)
+            )
+            return min(due_date, end_date)
+        return end_date
+
+    @api.constrains("due_days_after_start")
+    def _check_due_days_after_start(self):
+        for subscription in self:
+            if subscription.due_days_after_start < 0:
+                raise ValidationError(
+                    _("Le nombre de jours avant échéance ne peut être négatif.")
+                )
 
     # ==========================================================
     # CRÉER LE PREMIER CYCLE
@@ -1349,8 +1396,9 @@ class AssociationSubscription(models.Model):
                     "period_end_date":
                         end_date,
 
-                    "due_date":
-                        end_date,
+                    "due_date": subscription._get_period_due_date(
+                        start_date, end_date
+                    ),
 
                     "state":
                         "draft",

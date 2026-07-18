@@ -664,13 +664,6 @@ class AssociationMember(models.Model):
         store=False,
     )
 
-    currency_id = fields.Many2one(
-        "res.currency",
-        string="Currency",
-        related="company_id.currency_id",
-        readonly=True,
-    )
-
     # ==========================================================
     # COMPUTE
     # ==========================================================

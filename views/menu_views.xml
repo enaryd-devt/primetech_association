@@ -245,15 +245,4 @@
     <!-- CONFIGURATION                                              -->
     <!-- ========================================================= -->
 
-    <!--
-    <menuitem
-        id="menu_configuration"
-        name="Configuration"
-        parent="menu_association_root"
-        action="action_association_settings"
-        sequence="100"
-        groups="primetech_association.group_association_admin"
-    />
-    -->
-
 </odoo>
