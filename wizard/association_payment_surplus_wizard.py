@@ -479,6 +479,11 @@ class AssociationPaymentSurplusWizard(models.TransientModel):
                 _("Aucun paiement n'est associé à cet assistant.")
             )
 
+        if payment.surplus_processed:
+            raise UserError(
+                _("Le surplus de ce paiement a déjà été traité.")
+            )
+
         # ==========================================================
         # CONTRÔLE DU SURPLUS
         # ==========================================================
@@ -538,7 +543,7 @@ class AssociationPaymentSurplusWizard(models.TransientModel):
         # TRAITEMENT : CRÉDITER LE COMPTE MEMBRE
         # ==========================================================
 
-        if self.surplus_action == "credit_account":
+        if self.surplus_action == "member_account":
 
             MemberAccount = self.env[
                 "association.member.account"
@@ -701,6 +706,13 @@ class AssociationPaymentSurplusWizard(models.TransientModel):
 
             payment.write({
                 "surplus_processed": True,
+                "processed_surplus_amount": self.surplus_amount,
+                "surplus_action": self.surplus_action,
+                "refund_amount": (
+                    self.surplus_amount
+                    if self.surplus_action == "refund"
+                    else 0.0
+                ),
             })
 
         # ==========================================================

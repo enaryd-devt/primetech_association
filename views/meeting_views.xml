@@ -712,16 +712,29 @@
 
                                     <group>
 
+                                        <field name="committee_mode"
+                                               readonly="state == 'closed'"/>
+
+                                        <field name="available_committee_ids" invisible="1"/>
+
+                                        <field name="committee_id"
+                                               invisible="committee_mode != 'official'"
+                                               required="committee_mode == 'official'"
+                                               readonly="state == 'closed'"
+                                               options="{'no_create': true}"/>
+
+                                        <field name="eligible_officer_ids" invisible="1"/>
+
                                         <field
                                             name="chairperson_id"
-                                            domain="[('company_id', '=', company_id)]"
+                                            domain="[('id', 'in', eligible_officer_ids)]"
                                             readonly="state == 'closed'"
                                             options="{'no_create': true}"
                                         />
 
                                         <field
                                             name="secretary_id"
-                                            domain="[('company_id', '=', company_id)]"
+                                            domain="[('id', 'in', eligible_officer_ids)]"
                                             readonly="state == 'closed'"
                                             options="{'no_create': true}"
                                         />
@@ -733,6 +746,17 @@
                                         />
 
                                     </group>
+
+                                    <field name="special_officer_ids"
+                                           invisible="committee_mode != 'special'"
+                                           readonly="state == 'closed'">
+                                        <list editable="bottom">
+                                            <field name="sequence" widget="handle"/>
+                                            <field name="member_id"/>
+                                            <field name="role"/>
+                                            <field name="note" optional="show"/>
+                                        </list>
+                                    </field>
 
                                 </div>
 
@@ -901,6 +925,15 @@
                                         confirm="Voulez-vous réellement terminer le cycle courant ?"/>
 
                                     <button
+                                        name="action_settle_meeting_pot"
+                                        type="object"
+                                        string="Solder et verser le reliquat"
+                                        icon="fa-bank"
+                                        class="btn-primary"
+                                        invisible="state == 'closed' or not subscription_period_id"
+                                        confirm="Cette action ouvre la décision de clôture du cycle. Le reliquat ne sera versé qu'après confirmation."/>
+
+                                    <button
                                         name="action_open_next_subscription_cycle"
                                         type="object"
                                         string="Ouvrir le cycle suivant"
@@ -918,7 +951,6 @@
                                 </div>
 
                             </div>
-
 
                             <!-- ===================================================== -->
                             <!-- PILOTAGE DU CYCLE                                     -->
@@ -1308,32 +1340,6 @@
                                             }"
                                             readonly="1"/>
 
-
-                                            <!-- ===================================================== -->
-                                            <!-- SITUATION DE LA COTISATION                            -->
-                                            <!-- ===================================================== -->
-
-                                            <field
-                                                name="amount_due"
-                                                string="Montant dû"
-                                                widget="monetary"
-                                                options="{'currency_field': 'currency_id'}"
-                                                readonly="1"/>
-
-                                            <field
-                                                name="amount_paid"
-                                                string="Déjà payé"
-                                                widget="monetary"
-                                                options="{'currency_field': 'currency_id'}"
-                                                readonly="1"/>
-
-                                            <field
-                                                name="balance"
-                                                string="Reste"
-                                                widget="monetary"
-                                                options="{'currency_field': 'currency_id'}"
-                                                readonly="1"/>
-
                                             <field
                                                 name="member_account_balance"
                                                 string="Solde membre"
@@ -1361,6 +1367,7 @@
                                                 string="Payer"
                                                 icon="fa-money"
                                                 class="btn-primary"
+                                                context="{'default_meeting_id': parent.id}"
                                                 invisible="
                                                     payment_state == 'paid'
                                                     or balance &lt;= 0
@@ -1376,6 +1383,7 @@
                                                 string="Compte membre"
                                                 icon="fa-university"
                                                 class="btn-secondary"
+                                                context="{'default_meeting_id': parent.id}"
                                                 invisible="
                                                     payment_state == 'paid'
                                                     or balance &lt;= 0
@@ -2194,7 +2202,6 @@
                                 }">
 
                                 <list
-                                    editable="bottom"
                                     decoration-success="result == 'adopted'"
                                     decoration-danger="result == 'rejected'"
                                     decoration-muted="result == 'pending'">
