@@ -60,6 +60,15 @@ class AssociationSubscriptionAllocation(models.Model):
         index=True,
     )
 
+    meeting_subscription_session_id = fields.Many2one(
+        comodel_name="association.meeting.subscription.session",
+        string="Session de cotisation",
+        ondelete="restrict",
+        index=True,
+        readonly=True,
+        copy=False,
+    )
+
     # ==========================================================
     # BÉNÉFICIAIRE
     # ==========================================================
