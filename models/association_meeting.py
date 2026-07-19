@@ -126,6 +126,42 @@ class AssociationMeeting(models.Model):
     # RESPONSABLES
     # ==========================================================
 
+    committee_mode = fields.Selection(
+        [("official", "Bureau exécutif mandaté"),
+         ("special", "Bureau spécial de séance")],
+        string="Bureau de la séance",
+        required=True,
+        default="official",
+        tracking=True,
+    )
+
+    committee_id = fields.Many2one(
+        "association.committee",
+        string="Bureau exécutif",
+        domain="[('id', 'in', available_committee_ids)]",
+        tracking=True,
+        ondelete="restrict",
+    )
+
+    available_committee_ids = fields.Many2many(
+        "association.committee",
+        compute="_compute_available_committee_ids",
+        string="Bureaux disponibles",
+    )
+
+    special_officer_ids = fields.One2many(
+        "association.meeting.officer",
+        "meeting_id",
+        string="Bureau spécial de séance",
+        copy=True,
+    )
+
+    eligible_officer_ids = fields.Many2many(
+        "association.member",
+        compute="_compute_eligible_officer_ids",
+        string="Responsables disponibles",
+    )
+
     chairperson_id = fields.Many2one(
         comodel_name="association.member",
         string="Président de séance",
@@ -141,6 +177,122 @@ class AssociationMeeting(models.Model):
         tracking=True,
         domain="[('company_id', '=', company_id)]",
     )
+
+    @api.depends(
+        "committee_mode",
+        "committee_id.member_line_ids.member_id",
+        "special_officer_ids.member_id",
+    )
+    def _compute_eligible_officer_ids(self):
+        for meeting in self:
+            if meeting.committee_mode == "official":
+                meeting.eligible_officer_ids = (
+                    meeting.committee_id.member_line_ids.mapped("member_id")
+                )
+            else:
+                meeting.eligible_officer_ids = (
+                    meeting.special_officer_ids.mapped("member_id")
+                )
+
+    @api.depends("company_id", "meeting_date")
+    def _compute_available_committee_ids(self):
+        Committee = self.env["association.committee"]
+        for meeting in self:
+            meeting_date = meeting.meeting_date or fields.Date.context_today(
+                meeting
+            )
+            meeting.available_committee_ids = Committee.search([
+                ("company_id", "=", meeting.company_id.id),
+                ("state", "=", "running"),
+                ("start_date", "<=", meeting_date),
+                ("end_date", ">=", meeting_date),
+            ])
+
+    @api.onchange("committee_mode", "committee_id", "special_officer_ids")
+    def _onchange_meeting_committee(self):
+        for meeting in self:
+            if meeting.committee_mode == "official" and meeting.committee_id:
+                lines = meeting.committee_id.member_line_ids.sorted(
+                    key=lambda line: (line.sequence, line.id)
+                )
+
+                def member_for_role(keywords):
+                    candidate = lines.filtered(
+                        lambda line: any(
+                            keyword in (line.function_id.name or "").lower()
+                            for keyword in keywords
+                        )
+                    )[:1]
+                    return candidate.member_id if candidate else False
+
+                chairperson = member_for_role(["président", "president"])
+                secretary = member_for_role(["secrétaire", "secretaire"])
+
+                if not chairperson and lines:
+                    chairperson = lines[0].member_id
+                if not secretary:
+                    secretary = next(
+                        (
+                            line.member_id
+                            for line in lines
+                            if line.member_id != chairperson
+                        ),
+                        False,
+                    )
+
+                meeting.chairperson_id = chairperson
+                meeting.secretary_id = secretary
+
+            eligible = meeting.eligible_officer_ids
+            if meeting.chairperson_id not in eligible:
+                meeting.chairperson_id = False
+            if meeting.secretary_id not in eligible:
+                meeting.secretary_id = False
+
+    @api.constrains(
+        "committee_mode", "committee_id", "special_officer_ids",
+        "chairperson_id", "secretary_id", "meeting_date", "state",
+    )
+    def _check_meeting_committee(self):
+        for meeting in self:
+            if meeting.committee_mode == "official":
+                if meeting.state != "draft" and not meeting.committee_id:
+                    raise ValidationError(_(
+                        "Sélectionnez le bureau exécutif mandaté pour la séance."
+                    ))
+                if not meeting.committee_id:
+                    continue
+                if meeting.meeting_date and not (
+                    meeting.committee_id.start_date
+                    <= meeting.meeting_date
+                    <= meeting.committee_id.end_date
+                ):
+                    raise ValidationError(_(
+                        "La date de réunion est hors du mandat du bureau "
+                        "exécutif sélectionné."
+                    ))
+            elif meeting.committee_mode == "special":
+                roles = set(meeting.special_officer_ids.mapped("role"))
+                if meeting.state != "draft" and not {
+                    "chairperson", "secretary"
+                }.issubset(roles):
+                    raise ValidationError(_(
+                        "Le bureau spécial doit comporter un président "
+                        "et un secrétaire de séance."
+                    ))
+            if meeting.state != "draft":
+                if not meeting.chairperson_id or not meeting.secretary_id:
+                    raise ValidationError(_(
+                        "Définissez le président et le secrétaire de séance."
+                    ))
+                if (
+                    meeting.chairperson_id not in meeting.eligible_officer_ids
+                    or meeting.secretary_id not in meeting.eligible_officer_ids
+                ):
+                    raise ValidationError(_(
+                        "Les responsables de séance doivent appartenir au "
+                        "bureau sélectionné."
+                    ))
 
     # ==========================================================
     # CONVOCATION
@@ -295,9 +447,8 @@ class AssociationMeeting(models.Model):
     )
 
     description = fields.Html(
-        string="Texte de la résolution",
-        required=True,
-      
+        string="Description de la réunion",
+        help="Informations générales complémentaires sur la réunion.",
     )
 
     # ==========================================================
@@ -388,6 +539,21 @@ class AssociationMeeting(models.Model):
         comodel_name="association.meeting.collection",
         inverse_name="meeting_id",
         string="Encaissements de cotisations",
+        copy=False,
+    )
+
+    subscription_session_ids = fields.One2many(
+        comodel_name="association.meeting.subscription.session",
+        inverse_name="meeting_id",
+        string="Sessions de cotisation",
+        copy=False,
+    )
+
+    meeting_payment_ids = fields.One2many(
+        comodel_name="association.payment",
+        inverse_name="meeting_id",
+        string="Paiements issus de la réunion",
+        readonly=True,
         copy=False,
     )
 
@@ -576,10 +742,12 @@ class AssociationMeeting(models.Model):
     # ==========================================================
 
     @api.depends(
-        "subscription_period_id",
-        "subscription_period_id.collected_amount",
-        "subscription_period_id.allocated_amount",
-        "subscription_period_id.available_amount",
+        "subscription_line_ids.payment_state",
+        "subscription_line_ids.amount_paid",
+        "meeting_payment_ids.state",
+        "meeting_payment_ids.amount",
+        "meeting_payment_ids.processed_surplus_amount",
+        "meeting_payment_ids.surplus_action",
         "allocation_ids",
         "allocation_ids.amount",
         "allocation_ids.beneficiary_id",
@@ -594,39 +762,37 @@ class AssociationMeeting(models.Model):
             meeting.pot_available_amount = 0.0
             meeting.pot_beneficiary_count = 0
 
-            period = meeting.subscription_period_id
-
-            if not period:
-                continue
-
-            # ==================================================
-            # MONTANTS DU CYCLE COURANT
-            # ==================================================
-
-            meeting.pot_collected_amount = (
-                period.collected_amount or 0.0
-            )
-
-            meeting.pot_allocated_amount = (
-                period.allocated_amount or 0.0
-            )
-
-            meeting.pot_available_amount = (
-                period.available_amount or 0.0
-            )
-
-            # ==================================================
-            # BÉNÉFICIAIRES DU CYCLE COURANT
-            # ==================================================
-
             allocations = meeting.allocation_ids.filtered(
-                lambda allocation:
-                    allocation.state
-                    in (
-                        "confirmed",
-                        "paid",
-                    )
-                    and allocation.beneficiary_id
+                lambda allocation: allocation.meeting_id == meeting
+                and allocation.state in ("confirmed", "paid")
+                and allocation.beneficiary_id
+            )
+
+            collected_amount = sum(
+                payment.amount
+                - (
+                    payment.processed_surplus_amount
+                    if payment.surplus_action == "refund"
+                    else 0.0
+                )
+                for payment in meeting.meeting_payment_ids
+                if payment.state == "confirmed"
+            )
+            # Les anciens encaissements créés avant l'ajout du lien
+            # ``meeting_id`` restent visibles dans la réunion. Ce repli
+            # permet de présenter leur montant dans les indicateurs du cycle.
+            if not meeting.meeting_payment_ids.filtered(
+                lambda payment: payment.state == "confirmed"
+            ):
+                collected_amount = sum(
+                    meeting.subscription_line_ids.mapped("amount_paid")
+                )
+            allocated_amount = sum(allocations.mapped("amount"))
+
+            meeting.pot_collected_amount = collected_amount
+            meeting.pot_allocated_amount = allocated_amount
+            meeting.pot_available_amount = max(
+                collected_amount - allocated_amount, 0.0
             )
 
             meeting.pot_beneficiary_count = len(
@@ -712,16 +878,20 @@ class AssociationMeeting(models.Model):
             )
 
             if not period:
-                raise UserError(
-                    _(
-                        "Aucun cycle en cours n'a été trouvé "
-                        "pour la cotisation %(subscription)s."
-                    )
-                    % {
-                        "subscription":
-                            meeting.subscription_id.display_name,
-                    }
-                )
+                return {
+                    "type": "ir.actions.act_window",
+                    "name": _("Démarrer le cycle suivant"),
+                    "res_model": "association.meeting.subscription.cycle.start.wizard",
+                    "view_mode": "form",
+                    "view_id": self.env.ref(
+                        "primetech_association.view_association_meeting_subscription_cycle_start_wizard_form"
+                    ).id,
+                    "target": "new",
+                    "context": {
+                        "default_meeting_id": meeting.id,
+                        "default_subscription_id": meeting.subscription_id.id,
+                    },
+                }
 
             # ==================================================
             # ATTACHER LE CYCLE À LA RÉUNION
@@ -830,7 +1000,29 @@ class AssociationMeeting(models.Model):
             # TERMINER LE CYCLE
             # ==================================================
 
-            period.action_close()
+            session = meeting.subscription_session_ids.filtered(
+                lambda item: item.period_id == period
+            )[:1]
+            if session:
+                return session.action_open_settlement()
+
+            # Compatibility for historical meetings that have no session.
+            # A zero temporary balance must never open the closing wizard.
+            if (period.available_amount or 0.0) <= 0.01:
+                period.write({"state": "closed"})
+                period.subscription_id.line_ids.write({
+                    "amount_received": 0.0,
+                })
+                period.subscription_id.invalidate_recordset([
+                    "current_period_id",
+                    "period_count",
+                ])
+                return {
+                    "type": "ir.actions.client",
+                    "tag": "reload",
+                }
+
+            return period.action_close()
 
             # ==================================================
             # ACTUALISER LA RÉUNION
@@ -857,6 +1049,12 @@ class AssociationMeeting(models.Model):
     def action_open_next_subscription_cycle(self):
 
         self.ensure_one()
+
+        raise UserError(
+            _(
+                "Le cycle suivant doit être démarré depuis une nouvelle réunion, dans l'onglet « Sessions de cotisation »."
+            )
+        )
 
         # ======================================================
         # CONTRÔLE DE LA RÉUNION
@@ -1046,6 +1244,7 @@ class AssociationMeeting(models.Model):
     def action_allocate_subscription_pot(self):
         self.ensure_one()
 
+
         period = self.subscription_period_id
 
         if not period:
@@ -1083,7 +1282,7 @@ class AssociationMeeting(models.Model):
                 )
             )
 
-        available_amount = period.available_amount or 0.0
+        available_amount = self.pot_available_amount or 0.0
 
         if amount > available_amount:
             raise ValidationError(
@@ -1204,7 +1403,25 @@ class AssociationMeeting(models.Model):
             "type": "ir.actions.client",
             "tag": "soft_reload",
         }
-    
+
+    def action_settle_meeting_pot(self):
+        """Open the cycle settlement decision from the meeting.
+
+        Collections remain in the temporary meeting cash until the cycle
+        settlement wizard decides whether all or only the remainder is sent
+        to treasury. This action deliberately creates no fund transaction.
+        """
+        self.ensure_one()
+        if not self.subscription_period_id:
+            raise ValidationError(
+                _("Aucun cycle de cotisation n'est sélectionné.")
+            )
+        if self.subscription_period_id.state != "running":
+            raise ValidationError(
+                _("Le cycle de cotisation doit être en cours.")
+            )
+        return self.action_close_subscription_cycle()
+
     @api.depends(
         "subscription_id",
         "subscription_period_id",
@@ -1247,55 +1464,13 @@ class AssociationMeeting(models.Model):
             if not meeting.subscription_id:
                 continue
 
-            current_period = (
-                meeting.subscription_id.current_period_id
-            )
-
-            if not current_period:
-                return {
-                    "warning": {
-                        "title": _(
-                            "Aucun cycle actif"
-                        ),
-                        "message": _(
-                            "Cette cotisation ne possède "
-                            "aucun cycle actif.\n\n"
-                            "Ouvrez un nouveau cycle depuis "
-                            "la fiche de cotisation."
-                        ),
-                    }
-                }
-
-            if current_period.state != "running":
-                return {
-                    "warning": {
-                        "title": _(
-                            "Cycle non démarré"
-                        ),
-                        "message": _(
-                            "Le cycle courant de cette cotisation "
-                            "n'est pas en cours."
-                        ),
-                    }
-                }
-
             meeting.subscription_period_id = (
-                current_period
+                meeting.subscription_id.current_period_id
             )
     
     def write(self, vals):
 
         result = super().write(vals)
-
-        if "subscription_id" in vals:
-
-            for meeting in self:
-
-                meeting.subscription_period_id = (
-                    meeting.subscription_id.current_period_id
-                    if meeting.subscription_id
-                    else False
-                )
 
         return result
 
@@ -1305,9 +1480,9 @@ class AssociationMeeting(models.Model):
     # ==========================================================
 
     @api.depends(
-        "collection_ids",
-        "collection_ids.state",
-        "collection_ids.amount",
+        "subscription_line_ids",
+        "subscription_line_ids.payment_state",
+        "subscription_line_ids.amount_paid",
     )
     def _compute_collection_statistics(self):
 
@@ -1326,7 +1501,7 @@ class AssociationMeeting(models.Model):
             # RÉCUPÉRATION DES LIGNES
             # ==================================================
 
-            collection_lines = meeting.collection_ids
+            collection_lines = meeting.subscription_line_ids
 
             if not collection_lines:
                 continue
@@ -1336,8 +1511,7 @@ class AssociationMeeting(models.Model):
             # ==================================================
 
             pending_lines = collection_lines.filtered(
-                lambda line:
-                    line.state == "pending"
+                lambda line: line.payment_state != "paid"
             )
 
             # ==================================================
@@ -1345,8 +1519,7 @@ class AssociationMeeting(models.Model):
             # ==================================================
 
             paid_lines = collection_lines.filtered(
-                lambda line:
-                    line.state == "paid"
+                lambda line: line.payment_state == "paid"
             )
 
             # ==================================================
@@ -1366,7 +1539,7 @@ class AssociationMeeting(models.Model):
             )
 
             meeting.collection_total = sum(
-                paid_lines.mapped("amount")
+                paid_lines.mapped("amount_paid")
             )
 
 
@@ -2533,7 +2706,18 @@ class AssociationMeeting(models.Model):
                     or _("Nouveau")
                 )
 
-        return super().create(vals_list)
+        meetings = super().create(vals_list)
+        Session = self.env["association.meeting.subscription.session"]
+        for meeting in meetings.filtered("subscription_id"):
+            period = meeting.subscription_id.current_period_id
+            if period:
+                meeting.subscription_period_id = period.id
+                Session.create({
+                    "meeting_id": meeting.id,
+                    "subscription_id": meeting.subscription_id.id,
+                    "period_id": period.id,
+                })
+        return meetings
 
     # ==========================================================
     # STATISTIQUES DE PRÉSENCE
@@ -3166,7 +3350,27 @@ class AssociationMeeting(models.Model):
                 )
             )
 
-        return super().write(vals)
+        result = super().write(vals)
+
+        if vals.get("subscription_id"):
+            Session = self.env["association.meeting.subscription.session"]
+            for meeting in self:
+                period = meeting.subscription_id.current_period_id
+                if not period:
+                    continue
+                session = Session.search([
+                    ("meeting_id", "=", meeting.id),
+                    ("subscription_id", "=", meeting.subscription_id.id),
+                    ("period_id", "=", period.id),
+                ], limit=1)
+                if not session:
+                    Session.create({
+                        "meeting_id": meeting.id,
+                        "subscription_id": meeting.subscription_id.id,
+                        "period_id": period.id,
+                    })
+
+        return result
     
     
     # ==========================================================
