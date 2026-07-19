@@ -310,7 +310,7 @@
                         <!-- ============================================= -->
 
                         <page
-                            string="Incident"
+                            string="Détails facultatifs"
                             name="incident">
 
                             <group>
@@ -345,13 +345,13 @@
 
                             </group>
 
-                            <group string="Description précise des faits">
+                            <group string="Description des faits (facultative)">
 
                                 <field
                                     name="incident_description"
                                     nolabel="1"
                                     readonly="state != 'draft'"
-                                    placeholder="Décrivez précisément les faits constatés..."
+                                    placeholder="Ajoutez des précisions si nécessaire..."
                                 />
 
                             </group>
@@ -377,7 +377,7 @@
                         <!-- ============================================= -->
 
                         <page
-                            string="Décision disciplinaire"
+                            string="Décision (facultative)"
                             name="decision">
 
                             <group>
@@ -431,13 +431,13 @@
 
                             </group>
 
-                            <group string="Décision prise">
+                            <group string="Décision / commentaire (facultatif)">
 
                                 <field
                                     name="penalty_description"
                                     nolabel="1"
                                     readonly="state != 'draft'"
-                                    placeholder="Décrivez la décision disciplinaire prise..."
+                                    placeholder="Ajoutez un commentaire ou une décision détaillée si nécessaire..."
                                 />
 
                             </group>
@@ -450,7 +450,7 @@
                         <!-- ============================================= -->
 
                         <page
-                            string="Suivi de la sanction"
+                            string="Suivi (optionnel)"
                             name="followup">
 
                             <div
@@ -534,7 +534,7 @@
                         <!-- ============================================= -->
 
                         <page
-                            string="Levée de sanction"
+                            string="Clôture"
                             name="lifting">
 
                             <div
@@ -548,8 +548,8 @@
 
                                 <div class="small mt-1">
 
-                                    Renseignez le motif de levée avant
-                                    de cliquer sur « Lever la sanction ».
+                                    Le motif de levée est optionnel et peut être
+                                    ajouté pour conserver le contexte de la décision.
 
                                 </div>
 
@@ -593,16 +593,16 @@
                         <!-- ============================================= -->
 
                         <page
-                            string="Annulation"
+                            string="Annulation (facultative)"
                             name="cancellation">
 
-                            <group string="Motif d'annulation">
+                            <group string="Motif d'annulation (facultatif)">
 
                                 <field
                                     name="cancellation_reason"
                                     nolabel="1"
                                     readonly="state == 'cancelled'"
-                                    placeholder="Précisez pourquoi la décision disciplinaire doit être annulée..."
+                                    placeholder="Ajoutez un motif si nécessaire..."
                                 />
 
                             </group>
