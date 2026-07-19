@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from odoo import api, fields, models, _
-from odoo.exceptions import ValidationError
+from odoo import api, fields, models
 
 
 class MemberAccountSubscriptionPaymentWizard(models.TransientModel):
@@ -39,8 +38,10 @@ class MemberAccountSubscriptionPaymentWizard(models.TransientModel):
 
     def action_confirm(self):
         self.ensure_one()
-        if self.amount_to_pay <= 0:
-            raise ValidationError(_("Le compte membre ne dispose d'aucun solde utilisable."))
+        # Do not validate the non-stored display computation here.  The
+        # subscription-line workflow rereads the account balance under the
+        # transaction lock immediately before creating the payment; that is
+        # the authoritative validation and avoids a stale wizard cache.
         return self.subscription_line_id.with_context(
             skip_member_account_confirmation=True,
         ).action_pay_from_member_account()
