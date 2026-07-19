@@ -719,6 +719,7 @@ class AssociationMeetingCollection(models.Model):
                 "member_account_id": account.id,
                 "meeting_id": self.meeting_id.id,
                 "meeting_subscription_session_id": self.session_id.id,
+                "defer_member_account_debit": bool(self.session_id),
                 "has_allocations": True,
             }
         )

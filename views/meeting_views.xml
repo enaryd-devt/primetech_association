@@ -910,28 +910,25 @@
                                         string="Actualiser"
                                         icon="fa-refresh"
                                         class="btn-secondary"
-                                        invisible="not subscription_id"/>
+                                        invisible="not subscription_id"
+                                        confirm="S'il n'existe aucun cycle en cours, souhaitez-vous créer le nouveau cycle maintenant ?"/>
 
                                     <button
-                                        name="action_close_subscription_cycle"
+                                        name="action_print_subscription_report"
                                         type="object"
-                                        string="Terminer le cycle"
-                                        icon="fa-check-circle"
-                                        class="btn-secondary"
-                                        invisible="
-                                            state == 'closed'
-                                            or not subscription_period_id
-                                        "
-                                        confirm="Voulez-vous réellement terminer le cycle courant ?"/>
+                                        string="Imprimer le rapport PDF"
+                                        icon="fa-print"
+                                        class="btn-primary"
+                                        invisible="not subscription_report_available"/>
 
                                     <button
                                         name="action_settle_meeting_pot"
                                         type="object"
-                                        string="Solder et verser le reliquat"
+                                        string="Finaliser le cycle et solder la caisse"
                                         icon="fa-bank"
                                         class="btn-primary"
-                                        invisible="state == 'closed' or not subscription_period_id"
-                                        confirm="Cette action ouvre la décision de clôture du cycle. Le reliquat ne sera versé qu'après confirmation."/>
+                                        invisible="state == 'closed' or not subscription_period_id or subscription_report_available"
+                                        confirm="Cette action finalise le cycle : validez les attributions et versez le reliquat éventuel dans le compte financier choisi."/>
 
                                 </div>
 
@@ -980,6 +977,17 @@
                                                     'no_create': True,
                                                     'no_open': False
                                                 }"/>
+
+                                            <field
+                                                name="subscription_session_id"
+                                                string="Session chargée"
+                                                readonly="1"
+                                                options="{
+                                                    'no_create': True,
+                                                    'no_open': False
+                                                }"/>
+
+                                            <field name="subscription_report_available" invisible="1"/>
 
                                         </group>
 
@@ -1262,6 +1270,7 @@
                                 <field
                                     name="subscription_line_ids"
                                     nolabel="1"
+                                    invisible="subscription_report_available"
                                     readonly="state == 'closed'">
 
                                     <list
@@ -1326,8 +1335,8 @@
                                             readonly="1"/>
 
                                             <field
-                                                name="member_account_balance"
-                                                string="Solde membre"
+                                                name="temporary_member_account_balance"
+                                                string="Solde temporaire"
                                                 widget="monetary"
                                                 options="{'currency_field': 'currency_id'}"
                                                 readonly="1"
@@ -1384,6 +1393,18 @@
 
                                     </list>
 
+                                </field>
+
+                                <field name="subscription_snapshot_ids" nolabel="1" invisible="not subscription_report_available" readonly="1">
+                                    <list create="0" delete="0" decoration-success="payment_state == 'paid'" decoration-warning="payment_state == 'partial'" decoration-danger="payment_state == 'not_paid'">
+                                        <field name="member_code" string="N°"/>
+                                        <field name="member_name" string="Membre"/>
+                                        <field name="amount_due" string="Dû"/>
+                                        <field name="penalty_amount" string="Pénalité" optional="show"/>
+                                        <field name="amount_paid" string="Payé"/>
+                                        <field name="balance" string="Impayé"/>
+                                        <field name="payment_state" string="État" widget="badge"/>
+                                    </list>
                                 </field>
 
                             </div>
@@ -1445,6 +1466,7 @@
                                             <field
                                                 name="pot_beneficiary_id"
                                                 nolabel="1"
+                                                readonly="subscription_report_available"
                                                 options="{
                                                     'no_create': True,
                                                     'no_create_edit': True
@@ -1468,6 +1490,7 @@
                                             <field
                                                 name="pot_allocation_amount"
                                                 nolabel="1"
+                                                readonly="subscription_report_available"
                                                 widget="monetary"
                                                 options="{
                                                     'currency_field': 'currency_id'
@@ -1490,7 +1513,8 @@
 
                                             <field
                                                 name="pot_allocation_method"
-                                                nolabel="1"/>
+                                                nolabel="1"
+                                                readonly="subscription_report_available"/>
 
                                         </div>
 
@@ -1510,6 +1534,7 @@
                                                 invisible="
                                                     not pot_beneficiary_id
                                                     or pot_allocation_amount &lt;= 0
+                                                    or subscription_report_available
                                                 "/>
 
                                         </div>
@@ -1530,8 +1555,9 @@
                                         </label>
 
                                         <field
-                                            name="pot_allocation_note"
-                                            nolabel="1"
+                                                name="pot_allocation_note"
+                                                nolabel="1"
+                                                readonly="subscription_report_available"
                                             placeholder="Observation ou décision prise pendant la réunion..."/>
 
                                     </div>
