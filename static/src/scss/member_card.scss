@@ -24,3 +24,43 @@
         object-position: center !important;
     }
 }
+
+// Premium kanban cards for member cards.
+.o_kanban_view .association_member_card {
+    border: 0 !important;
+    border-radius: 18px;
+    overflow: hidden;
+    padding: 0;
+    background: #fff;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, .09);
+    transition: transform .2s ease, box-shadow .2s ease;
+
+    &:hover {
+        box-shadow: 0 16px 34px rgba(15, 23, 42, .16);
+        transform: translateY(-3px);
+    }
+}
+
+.association_member_card__hero { position: relative; min-height: 102px; padding: 17px 18px; overflow: hidden; background: linear-gradient(135deg, #111827, #253450); color: #fff; }
+.association_member_card__glow { position: absolute; top: -42px; right: -26px; width: 110px; height: 110px; border-radius: 50%; background: rgba(45, 212, 191, .23); }
+.association_member_card__eyebrow, .association_member_card__label { font-size: 10px; font-weight: 700; letter-spacing: .9px; text-transform: uppercase; }
+.association_member_card__eyebrow { color: #99f6e4; }
+.association_member_card__number { margin-top: 7px; font-size: 15px; font-weight: 700; letter-spacing: .35px; }
+.association_member_card__hero .o_field_widget[name="state"] { position: relative; padding: 5px 9px; border-radius: 20px; background: rgba(255,255,255,.12); color: #fff; font-size: 10px; }
+.association_member_card__body { padding: 0 18px 18px; }
+.association_member_card__identity { display: flex; align-items: center; margin-top: -27px; position: relative; }
+.association_member_card__avatar { flex: 0 0 68px; width: 68px; height: 68px; padding: 3px; border-radius: 50%; overflow: hidden; background: #fff; box-shadow: 0 5px 14px rgba(15, 23, 42, .18); }
+.association_member_card__avatar .o_field_image, .association_member_card__avatar img { display: block; width: 62px !important; height: 62px !important; min-width: 62px; min-height: 62px; border-radius: 50%; object-fit: cover; object-position: center; }
+.association_member_card__member { min-width: 0; margin-left: 12px; padding-top: 29px; }
+.association_member_card__label { color: #7b879a; }
+.association_member_card__name { overflow: hidden; margin-top: 3px; color: #14213a; font-size: 16px; font-weight: 750; line-height: 1.25; text-overflow: ellipsis; white-space: nowrap; }
+.association_member_card__code { margin-top: 4px; color: #0f766e; font-size: 11px; font-weight: 700; }
+.association_member_card__code i, .association_member_card__value i, .association_member_card__role i { margin-right: 5px; color: #14b8a6; }
+.association_member_card__role { display: inline-block; max-width: 100%; margin-top: 14px; padding: 6px 9px; border-radius: 7px; background: #f0fdfa; color: #0f766e; font-size: 11px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.association_member_card__details { display: flex; justify-content: space-between; gap: 12px; margin-top: 16px; padding: 13px 0; border-top: 1px solid #edf1f5; border-bottom: 1px solid #edf1f5; }
+.association_member_card__detail { min-width: 0; flex: 1; }
+.association_member_card__detail--right { text-align: right; }
+.association_member_card__value { margin-top: 5px; color: #28354d; font-size: 12px; font-weight: 700; }
+.association_member_card__validity { display: flex; justify-content: space-between; align-items: center; margin-top: 14px; color: #708096; font-size: 11px; }
+.association_member_card__validity strong { padding: 5px 9px; border-radius: 20px; background: #e7f8f4; color: #0f766e; font-size: 12px; }
+.association_member_card__validity small { font-size: 10px; font-weight: 600; }

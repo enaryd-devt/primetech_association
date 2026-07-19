@@ -196,52 +196,15 @@
 
                     <t t-name="card">
 
-                        <div
-                            class="oe_kanban_global_click o_kanban_record shadow-sm"
-                            style="
-                                border: 1px solid #e5e7eb;
-                                border-radius: 14px;
-                                overflow: hidden;
-                                padding: 0;
-                                background: #ffffff;
-                                min-height: 270px;
-                            ">
+                        <div class="oe_kanban_global_click o_kanban_record association_member_card">
 
-                            <!-- ================================================= -->
-                            <!-- BANDEAU SUPÉRIEUR                                 -->
-                            <!-- ================================================= -->
+                            <div class="association_member_card__hero">
+                                <div class="association_member_card__glow"></div>
 
-                            <div
-                                style="
-                                    height: 6px;
-                                    background: var(--o-brand-primary);
-                                ">
-                            </div>
-
-
-                            <!-- ================================================= -->
-                            <!-- CONTENU                                           -->
-                            <!-- ================================================= -->
-
-                            <div style="padding: 18px;">
-
-                                <!-- ============================================= -->
-                                <!-- ÉTAT                                           -->
-                                <!-- ============================================= -->
-
-                                <div
-                                    class="d-flex justify-content-between align-items-center mb-3">
-
-                                    <div
-                                        class="text-muted text-uppercase"
-                                        style="
-                                            font-size: 10px;
-                                            font-weight: 700;
-                                            letter-spacing: 1px;
-                                        ">
-
-                                        CARTE DE MEMBRE
-
+                                <div class="d-flex justify-content-between align-items-start position-relative">
+                                    <div>
+                                        <div class="association_member_card__eyebrow">Carte membre</div>
+                                        <div class="association_member_card__number"><field name="card_number"/></div>
                                     </div>
 
                                     <field
@@ -251,271 +214,55 @@
                                         decoration-success="state == 'active'"
                                         decoration-warning="state == 'expired'"
                                         decoration-danger="state in ('blocked', 'cancelled')"/>
-
                                 </div>
+                            </div>
 
-
-                                <!-- ============================================= -->
-                                <!-- IDENTITÉ MEMBRE                                -->
-                                <!-- ============================================= -->
-
-                                <div class="d-flex align-items-center">
-
-                                    <!-- PHOTO -->
-
-                                    <div
-                                        class="flex-shrink-0"
-                                        style="
-                                            width: 82px;
-                                            height: 82px;
-                                            border-radius: 50%;
-                                            padding: 3px;
-                                            border: 2px solid var(--o-brand-primary);
-                                            background: #ffffff;
-                                        ">
-
+                            <div class="association_member_card__body">
+                                <div class="association_member_card__identity">
+                                    <div class="association_member_card__avatar">
                                         <field
                                             name="image_128"
                                             widget="image"
-                                            options="{
-                                                'preview_image': 'image_128'
-                                            }"
-                                            style="
-                                                width: 72px;
-                                                height: 72px;
-                                                min-width: 72px;
-                                                min-height: 72px;
-                                                max-width: 72px;
-                                                max-height: 72px;
-                                                border-radius: 50%;
-                                                object-fit: cover;
-                                                display: block;
-                                            "/>
-
+                                            options="{'preview_image': 'image_128'}"/>
                                     </div>
 
-
-                                    <!-- IDENTITÉ -->
-
-                                    <div
-                                        class="ms-3 flex-grow-1"
-                                        style="
-                                            min-width: 0;
-                                        ">
-
-                                        <div
-                                            class="text-muted"
-                                            style="
-                                                font-size: 11px;
-                                            ">
-
-                                            Membre
-
-                                        </div>
-
-                                        <div
-                                            class="text-truncate"
-                                            style="
-                                                font-size: 17px;
-                                                font-weight: 700;
-                                                line-height: 1.3;
-                                            ">
-
-                                            <field name="member_id"/>
-
-                                        </div>
-
-
-                                        <!-- CODE MEMBRE -->
-
-                                        <div
-                                            class="mt-1 text-muted"
-                                            style="
-                                                font-size: 12px;
-                                            ">
-
-                                            <i
-                                                class="fa fa-id-card-o me-1"
-                                                title="Code membre"/>
-
+                                    <div class="association_member_card__member">
+                                        <div class="association_member_card__label">Membre</div>
+                                        <div class="association_member_card__name"><field name="member_id"/></div>
+                                        <div class="association_member_card__code">
+                                            <i class="fa fa-id-card-o" title="Code membre"/>
                                             <field name="member_code"/>
-
                                         </div>
-
-
-                                        <!-- FONCTION -->
-
-                                        <div
-                                            class="mt-1"
-                                            style="
-                                                font-size: 12px;
-                                                color: var(--o-brand-primary);
-                                                font-weight: 600;
-                                            "
-                                            t-if="record.function_id.raw_value">
-
-                                            <i
-                                                class="fa fa-briefcase me-1"
-                                                title="Fonction"/>
-
-                                            <field name="function_id"/>
-
-                                        </div>
-
                                     </div>
-
                                 </div>
 
-
-                                <!-- ============================================= -->
-                                <!-- NUMÉRO DE CARTE                                -->
-                                <!-- ============================================= -->
-
-                                <div
-                                    class="mt-4"
-                                    style="
-                                        background: #f8f9fa;
-                                        border: 1px solid #e9ecef;
-                                        border-radius: 10px;
-                                        padding: 10px 12px;
-                                    ">
-
-                                    <div
-                                        class="text-muted text-uppercase"
-                                        style="
-                                            font-size: 9px;
-                                            font-weight: 700;
-                                            letter-spacing: 0.8px;
-                                        ">
-
-                                        Numéro de carte
-
-                                    </div>
-
-                                    <div
-                                        class="mt-1"
-                                        style="
-                                            font-size: 15px;
-                                            font-weight: 700;
-                                            letter-spacing: 0.5px;
-                                            white-space: normal;
-                                            word-break: break-word;
-                                        ">
-
-                                        <i
-                                            class="fa fa-credit-card me-2"
-                                            title="Numéro de carte"/>
-
-                                        <field name="card_number"/>
-
-                                    </div>
-
+                                <div class="association_member_card__role" t-if="record.function_id.raw_value">
+                                    <i class="fa fa-briefcase" title="Fonction"/>
+                                    <field name="function_id"/>
                                 </div>
 
-
-                                <!-- ============================================= -->
-                                <!-- INFORMATIONS                                   -->
-                                <!-- ============================================= -->
-
-                                <div
-                                    class="row mt-3"
-                                    style="
-                                        font-size: 12px;
-                                    ">
-
-                                    <!-- CATÉGORIE -->
-
-                                    <div class="col-6">
-
-                                        <div
-                                            class="text-muted"
-                                            style="
-                                                font-size: 10px;
-                                            ">
-
-                                            Catégorie
-
-                                        </div>
-
-                                        <div
-                                            class="fw-semibold text-truncate">
-
-                                            <i
-                                                class="fa fa-users me-1"
-                                                title="Catégorie"/>
-
+                                <div class="association_member_card__details">
+                                    <div class="association_member_card__detail">
+                                        <div class="association_member_card__label">Catégorie</div>
+                                        <div class="association_member_card__value text-truncate">
+                                            <i class="fa fa-users" title="Catégorie"/>
                                             <field name="category_id"/>
-
                                         </div>
-
                                     </div>
 
-
-                                    <!-- EXPIRATION -->
-
-                                    <div class="col-6 text-end">
-
-                                        <div
-                                            class="text-muted"
-                                            style="
-                                                font-size: 10px;
-                                            ">
-
-                                            Expire le
-
-                                        </div>
-
-                                        <div class="fw-semibold">
-
-                                            <i
-                                                class="fa fa-calendar me-1"
-                                                title="Date d'expiration"/>
-
+                                    <div class="association_member_card__detail association_member_card__detail--right">
+                                        <div class="association_member_card__label">Expire le</div>
+                                        <div class="association_member_card__value">
+                                            <i class="fa fa-calendar" title="Date d'expiration"/>
                                             <field name="expiry_date"/>
-
                                         </div>
-
                                     </div>
-
                                 </div>
 
-
-                                <!-- ============================================= -->
-                                <!-- VALIDITÉ                                       -->
-                                <!-- ============================================= -->
-
-                                <div
-                                    class="mt-3 pt-3 border-top"
-                                    t-if="record.state.raw_value == 'active'">
-
-                                    <div
-                                        class="d-flex justify-content-between align-items-center">
-
-                                        <span
-                                            class="text-muted"
-                                            style="
-                                                font-size: 11px;
-                                            ">
-
-                                            Validité restante
-
-                                        </span>
-
-                                        <span
-                                            class="badge rounded-pill text-bg-light border">
-
-                                            <field name="remaining_days"/>
-
-                                            <span class="ms-1">
-                                                jour(s)
-                                            </span>
-
-                                        </span>
-
-                                    </div>
-
+                                <div class="association_member_card__validity" t-if="record.state.raw_value == 'active'">
+                                    <span>Validité restante</span>
+                                    <strong><field name="remaining_days"/> <small>jours</small></strong>
                                 </div>
-
                             </div>
 
                         </div>
