@@ -1282,6 +1282,7 @@
                                 <field
                                     name="subscription_line_ids"
                                     nolabel="1"
+                                    invisible="subscription_report_available"
                                     readonly="state == 'closed'">
 
                                     <list
@@ -1404,6 +1405,18 @@
 
                                     </list>
 
+                                </field>
+
+                                <field name="subscription_snapshot_ids" nolabel="1" invisible="not subscription_report_available" readonly="1">
+                                    <list create="0" delete="0" decoration-success="payment_state == 'paid'" decoration-warning="payment_state == 'partial'" decoration-danger="payment_state == 'not_paid'">
+                                        <field name="member_code" string="N°"/>
+                                        <field name="member_name" string="Membre"/>
+                                        <field name="amount_due" string="Dû"/>
+                                        <field name="penalty_amount" string="Pénalité" optional="show"/>
+                                        <field name="amount_paid" string="Payé"/>
+                                        <field name="balance" string="Impayé"/>
+                                        <field name="payment_state" string="État" widget="badge"/>
+                                    </list>
                                 </field>
 
                             </div>

@@ -603,6 +603,12 @@ class AssociationMeeting(models.Model):
         string="Rapport de cotisation disponible",
     )
 
+    subscription_snapshot_ids = fields.Many2many(
+        "association.meeting.subscription.snapshot",
+        compute="_compute_subscription_session", string="Situation figée du cycle",
+        readonly=True,
+    )
+
     subscription_line_ids = fields.One2many(
         comodel_name="association.subscription.line",
         compute="_compute_subscription_line_ids",
@@ -633,6 +639,7 @@ class AssociationMeeting(models.Model):
             meeting.subscription_report_available = bool(
                 session and session.state == "closed"
             )
+            meeting.subscription_snapshot_ids = session.snapshot_ids
 
     # ==========================================================
     # STATISTIQUES DE LA CAGNOTTE

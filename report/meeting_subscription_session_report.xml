@@ -68,8 +68,8 @@
 
                         <h3 class="subscription-report-section">Situation des membres à la clôture</h3>
                         <table class="subscription-report-table">
-                            <thead><tr><th>Membre</th><th class="amount">Dû à la séance</th><th class="amount">Réglé</th><th class="amount">Reste</th><th>État</th></tr></thead>
-                            <tbody><tr t-foreach="session.collection_ids" t-as="line"><td><span t-field="line.member_id"/></td><td class="amount"><span t-field="line.initial_due_amount"/></td><td class="amount"><span t-field="line.frozen_amount_paid"/></td><td class="amount"><span t-field="line.frozen_balance"/></td><td><span t-field="line.frozen_payment_state"/></td></tr></tbody>
+                            <thead><tr><th>Membre</th><th class="amount">Dû</th><th class="amount">Pénalité</th><th class="amount">Réglé</th><th class="amount">Impayé</th><th>État</th></tr></thead>
+                            <tbody><tr t-foreach="session.snapshot_ids" t-as="line"><td><span t-field="line.member_name"/></td><td class="amount"><span t-field="line.amount_due"/></td><td class="amount"><span t-field="line.penalty_amount"/></td><td class="amount"><span t-field="line.amount_paid"/></td><td class="amount"><span t-field="line.balance"/></td><td><span t-field="line.payment_state"/></td></tr></tbody>
                         </table>
 
                         <h3 class="subscription-report-section">Décision de clôture</h3>

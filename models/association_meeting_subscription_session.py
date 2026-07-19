@@ -51,6 +51,10 @@ class AssociationMeetingSubscriptionSession(models.Model):
         "association.payment", "meeting_subscription_session_id",
         string="Paiements", readonly=True,
     )
+    snapshot_ids = fields.One2many(
+        "association.meeting.subscription.snapshot", "session_id",
+        string="Situation figée du cycle", readonly=True, copy=False,
+    )
     payment_count = fields.Integer(
         compute="_compute_payment_summary", string="Encaissements validés",
     )
@@ -77,6 +81,10 @@ class AssociationMeetingSubscriptionSession(models.Model):
         currency_field="currency_id", readonly=True, copy=False,
     )
     closed_paid_count = fields.Integer(readonly=True, copy=False)
+    closed_partial_count = fields.Integer(readonly=True, copy=False)
+    closed_unpaid_count = fields.Integer(readonly=True, copy=False)
+    closed_penalty_amount = fields.Monetary(currency_field="currency_id", readonly=True, copy=False)
+    closed_allocated_amount = fields.Monetary(currency_field="currency_id", readonly=True, copy=False)
     closed_pending_count = fields.Integer(readonly=True, copy=False)
     closed_by_id = fields.Many2one("res.users", readonly=True, copy=False)
     closed_at = fields.Datetime(readonly=True, copy=False)
@@ -273,14 +281,22 @@ class AssociationMeetingSubscriptionSession(models.Model):
 
     def action_mark_closed(self):
         for session in self:
-            session.collection_ids.action_freeze_cycle_snapshot()
+            session._create_cycle_snapshot()
+            snapshots = session.snapshot_ids
+            paid = snapshots.filtered(lambda item: item.payment_state == "paid")
+            partial = snapshots.filtered(lambda item: item.payment_state == "partial")
+            unpaid = snapshots.filtered(lambda item: item.payment_state == "not_paid")
             session.write({
                 "state": "closed",
                 "closed_by_id": self.env.user.id,
                 "closed_at": fields.Datetime.now(),
-                "closed_expected_amount": session.expected_amount,
-                "closed_collected_amount": session.collected_amount,
-                "closed_paid_count": session.paid_count,
+                "closed_expected_amount": sum(snapshots.mapped("amount_due")),
+                "closed_collected_amount": sum(snapshots.mapped("amount_paid")),
+                "closed_paid_count": len(paid),
+                "closed_partial_count": len(partial),
+                "closed_unpaid_count": len(unpaid),
+                "closed_penalty_amount": sum(snapshots.mapped("penalty_amount")),
+                "closed_allocated_amount": sum(session.allocation_ids.mapped("amount")),
                 "closed_pending_count": session.pending_count,
             })
             # Keep the selected subscription and period on the meeting.  This
@@ -291,6 +307,38 @@ class AssociationMeetingSubscriptionSession(models.Model):
                 "subscription_report_available",
                 "subscription_line_ids",
             ])
+        return True
+
+    def _create_cycle_snapshot(self):
+        """Freeze every member's amounts for this exact period.
+
+        Subscription-line computed values follow the *current* cycle and are
+        therefore not safe historical data after the next cycle starts.
+        """
+        self.ensure_one()
+        if self.snapshot_ids:
+            return True
+        PaymentLine = self.env["association.payment.line"]
+        values = []
+        for line in self.subscription_id.line_ids.filtered("active"):
+            payment_lines = PaymentLine.search([
+                ("subscription_line_id", "=", line.id),
+                ("payment_id.subscription_period_id", "=", self.period_id.id),
+                ("payment_id.state", "in", ("collected", "confirmed")),
+            ])
+            due = (self.subscription_id.amount or 0.0) + (line.penalty_amount or 0.0)
+            paid = sum(payment_lines.mapped("amount_paid"))
+            balance = max(due - paid, 0.0)
+            values.append({
+                "session_id": self.id, "member_id": line.member_id.id,
+                "member_name": line.member_id.display_name,
+                "member_code": line.member_code, "amount_due": due,
+                "amount_paid": paid, "balance": balance,
+                "penalty_amount": line.penalty_amount,
+                "payment_state": "paid" if balance <= 0.01 else ("partial" if paid else "not_paid"),
+            })
+        self.env["association.meeting.subscription.snapshot"].create(values)
+        self.collection_ids.action_freeze_cycle_snapshot()
         return True
 
     def action_print_report(self):
