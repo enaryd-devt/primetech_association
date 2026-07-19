@@ -13,6 +13,7 @@ async function refreshSubscriptionTable(env, action) {
         params.subscription_id;
 
     const meetingId = params.meeting_id;
+    const closeDialog = params.close_dialog !== false;
 
     const actionService =
         env.services.action;
@@ -22,9 +23,11 @@ async function refreshSubscriptionTable(env, action) {
     // FERMER LE WIZARD
     // =========================================================
 
-    await actionService.doAction({
-        type: "ir.actions.act_window_close",
-    });
+    if (closeDialog) {
+        await actionService.doAction({
+            type: "ir.actions.act_window_close",
+        });
+    }
 
 
     // =========================================================

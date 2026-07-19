@@ -1532,7 +1532,11 @@ class AssociationSubscriptionLine(models.Model):
             "tag": "primetech_refresh_subscription_table",
             "params": {
                 "subscription_id": self.subscription_id.id,
+                "subscription_line_id": self.id,
+                "field_name": "subscription_line_ids",
+                "origin": "meeting",
                 "meeting_id": meeting.id,
+                "close_dialog": False,
             },
         }
     
