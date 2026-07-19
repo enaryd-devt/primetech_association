@@ -20,6 +20,17 @@
           </t>
         </section>
 
+        <section class="quick_actions" aria-label="Actions rapides">
+          <div class="quick_actions_intro"><span class="quick_actions_icon"><i class="fa fa-bolt"/></span><div><strong>Actions rapides</strong><small>Accédez aux opérations les plus fréquentes.</small></div></div>
+          <div class="quick_actions_list">
+            <button class="quick_action primary" t-on-click="createMember"><i class="fa fa-user-plus"/><span>Nouveau membre</span></button>
+            <button class="quick_action" t-on-click="openMeetings"><i class="fa fa-calendar-plus-o"/><span>Réunions</span></button>
+            <button class="quick_action" t-on-click="openPayments"><i class="fa fa-money"/><span>Encaissements</span></button>
+            <button class="quick_action" t-on-click="openSubscriptions"><i class="fa fa-refresh"/><span>Cotisations</span></button>
+            <button class="quick_action" t-on-click="openTreasury"><i class="fa fa-bank"/><span>Trésorerie</span></button>
+          </div>
+        </section>
+
         <section class="dash_grid top_grid">
           <article class="dash_panel members_panel"><div class="panel_title"><h2>Statut des membres</h2><span>Données actuelles</span></div>
             <div class="donut_wrap"><div class="donut members_donut" t-att-style="'background:conic-gradient(var(--blue) 0 ' + memberPercent + '%, var(--green) ' + memberPercent + '% 100%)'"><div><strong t-esc="state.data.members.total || 0"/><small>Total</small></div></div>

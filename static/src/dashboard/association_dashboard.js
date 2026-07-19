@@ -177,6 +177,16 @@ export class AssociationDashboard extends Component {
 
     }
 
+    createMember() {
+        return this.action.doAction({
+            type: "ir.actions.act_window",
+            name: "Nouveau membre",
+            res_model: "association.member",
+            views: [[false, "form"]],
+            target: "current",
+        });
+    }
+
 
     openMeetings() {
 
