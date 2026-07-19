@@ -961,20 +961,18 @@ class AssociationMeeting(models.Model):
             )
 
             if not period:
-                return {
-                    "type": "ir.actions.act_window",
-                    "name": _("Démarrer le cycle suivant"),
-                    "res_model": "association.meeting.subscription.cycle.start.wizard",
-                    "view_mode": "form",
-                    "view_id": self.env.ref(
-                        "primetech_association.view_association_meeting_subscription_cycle_start_wizard_form"
-                    ).id,
-                    "target": "new",
-                    "context": {
-                        "default_meeting_id": meeting.id,
-                        "default_subscription_id": meeting.subscription_id.id,
-                    },
-                }
+                # The meeting must remain the working screen.  Create the
+                # next period through the subscription business method rather
+                # than opening the cycle-start wizard.
+                meeting.subscription_id.action_open_next_period()
+                meeting.subscription_id.invalidate_recordset([
+                    "current_period_id", "period_count",
+                ])
+                period = meeting.subscription_id.current_period_id
+                if not period or period.state != "running":
+                    raise ValidationError(
+                        _("Le nouveau cycle de cotisation n'a pas pu être démarré.")
+                    )
 
             # ==================================================
             # ATTACHER LE CYCLE À LA RÉUNION
@@ -1137,12 +1135,6 @@ class AssociationMeeting(models.Model):
     def action_open_next_subscription_cycle(self):
 
         self.ensure_one()
-
-        raise UserError(
-            _(
-                "Le cycle suivant doit être démarré depuis une nouvelle réunion, dans l'onglet « Sessions de cotisation »."
-            )
-        )
 
         # ======================================================
         # CONTRÔLE DE LA RÉUNION

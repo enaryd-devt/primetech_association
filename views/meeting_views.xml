@@ -910,7 +910,16 @@
                                         string="Actualiser"
                                         icon="fa-refresh"
                                         class="btn-secondary"
-                                        invisible="not subscription_id"/>
+                                        invisible="not subscription_id"
+                                        confirm="S'il n'existe aucun cycle en cours, souhaitez-vous créer le nouveau cycle maintenant ?"/>
+
+                                    <button
+                                        name="action_print_subscription_report"
+                                        type="object"
+                                        string="Imprimer le rapport PDF"
+                                        icon="fa-print"
+                                        class="btn-primary"
+                                        invisible="not subscription_report_available"/>
 
                                     <button
                                         name="action_print_subscription_report"

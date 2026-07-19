@@ -1067,24 +1067,17 @@ class AssociationSubscriptionLine(models.Model):
             member_account.balance or 0.0
         )
 
-        if available_balance < amount_to_pay:
+        if available_balance <= 0:
             raise ValidationError(
                 _(
-                    "Solde du compte membre insuffisant.\n\n"
-                    "Disponible : %(available).2f %(currency)s\n"
-                    "Montant requis : %(required).2f %(currency)s"
+                    "Le compte membre ne dispose d'aucun solde disponible."
                 )
-                % {
-                    "available":
-                        available_balance,
-
-                    "required":
-                        amount_to_pay,
-
-                    "currency":
-                        self.currency_id.name or "",
-                }
             )
+
+        # A member-account payment can settle only the available amount.  The
+        # remaining balance stays due and the line becomes ``partial`` after
+        # confirmation, exactly like an external partial payment.
+        amount_to_pay = min(amount_to_pay, available_balance)
 
         # ======================================================
         # DATE DU PAIEMENT
