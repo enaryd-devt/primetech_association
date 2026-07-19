@@ -879,6 +879,19 @@ class AssociationSubscriptionLine(models.Model):
     def action_pay_from_member_account(self):
         self.ensure_one()
 
+        if not self.env.context.get("skip_member_account_confirmation"):
+            wizard = self.env[
+                "association.member.account.subscription.payment.wizard"
+            ].create({"subscription_line_id": self.id})
+            return {
+                "type": "ir.actions.act_window",
+                "name": _("Utiliser le compte membre"),
+                "res_model": wizard._name,
+                "res_id": wizard.id,
+                "view_mode": "form",
+                "target": "new",
+            }
+
         MemberAccount = self.env[
             "association.member.account"
         ]
