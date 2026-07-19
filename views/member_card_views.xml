@@ -655,7 +655,7 @@
                     <div class="d-flex align-items-start">
 
                         <div
-                            class="me-4 flex-shrink-0"
+                            class="me-4 flex-shrink-0 association_card_avatar_zone"
                             style="
                                 width: 128px;
                                 height: 128px;
