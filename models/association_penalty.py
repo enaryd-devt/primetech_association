@@ -124,7 +124,6 @@ class AssociationPenalty(models.Model):
             ("other", "Autre"),
         ],
         string="Type d'incident",
-        required=True,
         tracking=True,
         index=True,
     )
@@ -147,7 +146,6 @@ class AssociationPenalty(models.Model):
             ("critical", "Très grave"),
         ],
         string="Niveau de gravité",
-        required=True,
         default="low",
         tracking=True,
         index=True,
@@ -169,7 +167,6 @@ class AssociationPenalty(models.Model):
             ("other", "Autre"),
         ],
         string="Type de sanction",
-        required=True,
         default="observation",
         tracking=True,
         index=True,
@@ -425,39 +422,6 @@ class AssociationPenalty(models.Model):
                     _("Veuillez sélectionner le membre concerné.")
                 )
 
-            if not record.incident_type:
-
-                raise UserError(
-                    _("Veuillez sélectionner le type d'incident.")
-                )
-
-            if not record.incident_description:
-
-                raise UserError(
-                    _("Veuillez décrire précisément les faits.")
-                )
-
-            if not record.severity:
-
-                raise UserError(
-                    _("Veuillez définir le niveau de gravité.")
-                )
-
-            if not record.penalty_type:
-
-                raise UserError(
-                    _("Veuillez définir le type de sanction.")
-                )
-
-            if not record.penalty_description:
-
-                raise UserError(
-                    _(
-                        "Veuillez renseigner la décision "
-                        "disciplinaire."
-                    )
-                )
-
             if (
                 record.penalty_type == "fine"
                 and record.amount <= 0
@@ -479,18 +443,6 @@ class AssociationPenalty(models.Model):
                     _(
                         "Veuillez renseigner la durée "
                         "de suspension."
-                    )
-                )
-
-            if (
-                record.corrective_action_required
-                and not record.corrective_action
-            ):
-
-                raise UserError(
-                    _(
-                        "Veuillez définir l'action que le membre "
-                        "doit accomplir pour lever la sanction."
                     )
                 )
 
@@ -633,15 +585,6 @@ class AssociationPenalty(models.Model):
                     )
                 )
 
-            if not record.lift_reason:
-
-                raise UserError(
-                    _(
-                        "Veuillez renseigner le motif "
-                        "de levée de la sanction."
-                    )
-                )
-
             record.write(
                 {
                     "state": "lifted",
@@ -676,15 +619,6 @@ class AssociationPenalty(models.Model):
                     _(
                         "Cette sanction ne peut plus "
                         "être annulée."
-                    )
-                )
-
-            if not record.cancellation_reason:
-
-                raise UserError(
-                    _(
-                        "Veuillez renseigner le motif "
-                        "d'annulation de la sanction."
                     )
                 )
 
