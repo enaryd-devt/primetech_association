@@ -126,6 +126,7 @@ Gestion financière
             "primetech_association/static/src/dashboard/association_dashboard.js",
             "primetech_association/static/src/dashboard/association_dashboard.xml",
             "primetech_association/static/src/dashboard/association_dashboard.scss",
+            "primetech_association/static/src/scss/member_card.scss",
 
             "primetech_association/static/src/js/refresh_subscription_table.js",
         ],
