@@ -27,7 +27,7 @@
                     <button name="action_generate_members" type="object" string="Générer les membres" invisible="state not in ('draft', 'collecting')"/>
                     <button name="action_collect_all" type="object" string="Encaisser les montants saisis" class="btn-primary" invisible="state != 'collecting'"/>
                     <button name="action_open_settlement" type="object" string="Décider et clôturer" class="btn-primary" invisible="state not in ('collecting', 'decision')"/>
-                    <button name="action_print_report" type="object" string="Imprimer le rapport" icon="fa-print" invisible="state != 'closed'"/>
+                    <button name="action_print_report" type="object" string="Imprimer le rapport PDF" icon="fa-print" invisible="state != 'closed'"/>
                     <field name="state" widget="statusbar" statusbar_visible="draft,collecting,decision,closed"/>
                 </header>
                 <sheet>
@@ -45,6 +45,8 @@
                             <field name="paid_count" readonly="1"/>
                             <field name="closed_by_id" invisible="state != 'closed'"/>
                             <field name="closed_at" invisible="state != 'closed'"/>
+                            <field name="payment_count" invisible="state != 'closed'"/>
+                            <field name="payment_total" invisible="state != 'closed'"/>
                         </group>
                     </group>
                     <notebook>
@@ -63,6 +65,26 @@
                                     <field name="state" widget="badge"/>
                                     <button name="action_collect" type="object" string="Encaisser" icon="fa-check" invisible="state != 'pending'"/>
                                     <button name="action_pay_from_member_account" type="object" string="Compte membre" icon="fa-credit-card" invisible="state != 'pending'"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Encaissements validés" name="validated_payments" invisible="state != 'closed'">
+                            <div class="alert alert-success" role="alert">
+                                Les encaissements validés sont chargés automatiquement à la clôture. Utilisez le bouton « Imprimer le rapport » pour les exporter au format PDF.
+                            </div>
+                            <group>
+                                <field name="payment_count" readonly="1"/>
+                                <field name="payment_total" readonly="1"/>
+                            </group>
+                            <field name="payment_ids" readonly="1">
+                                <list create="0" delete="0">
+                                    <field name="name" string="N° paiement"/>
+                                    <field name="payment_date"/>
+                                    <field name="member_id"/>
+                                    <field name="amount"/>
+                                    <field name="payment_method"/>
+                                    <field name="payment_reference" optional="show"/>
+                                    <field name="state" widget="badge"/>
                                 </list>
                             </field>
                         </page>
@@ -90,7 +112,7 @@
         <field name="inherit_id" ref="primetech_association.view_association_meeting_form"/>
         <field name="arch" type="xml">
             <xpath expr="//notebook" position="inside">
-                <page string="Sessions de cotisation" name="subscription_sessions">
+                <page string="Sessions de cotisation" name="subscription_sessions" groups="base.group_no_one">
                     <div class="alert alert-info" role="alert">
                         Une session correspond à une cotisation et à un cycle. Le même cycle ne peut être ajouté qu'une seule fois dans cette réunion.
                     </div>
