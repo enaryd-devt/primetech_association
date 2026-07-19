@@ -218,6 +218,30 @@ class AssociationSubscriptionLine(models.Model):
         compute="_compute_member_account_balance",
     )
 
+    temporary_member_account_balance = fields.Monetary(
+        string="Solde temporaire du compte",
+        currency_field="currency_id",
+        compute="_compute_temporary_member_account_balance",
+        help="Solde disponible après déduction des règlements de réunion en attente de validation finale.",
+    )
+
+    @api.depends(
+        "member_account_balance",
+        "payment_line_ids.amount_paid",
+        "payment_line_ids.payment_id.state",
+        "payment_line_ids.payment_id.defer_member_account_debit",
+    )
+    def _compute_temporary_member_account_balance(self):
+        for line in self:
+            deferred_amount = sum(line.payment_line_ids.filtered(
+                lambda payment_line: payment_line.payment_id.state == "confirmed"
+                and payment_line.payment_id.defer_member_account_debit
+            ).mapped("amount_paid"))
+            line.temporary_member_account_balance = max(
+                (line.member_account_balance or 0.0) - deferred_amount,
+                0.0,
+            )
+
     # ==========================================================
     # PÉNALITÉ DU MEMBRE
     # ==========================================================

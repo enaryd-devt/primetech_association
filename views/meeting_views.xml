@@ -1335,8 +1335,8 @@
                                             readonly="1"/>
 
                                             <field
-                                                name="member_account_balance"
-                                                string="Solde membre"
+                                                name="temporary_member_account_balance"
+                                                string="Solde temporaire"
                                                 widget="monetary"
                                                 options="{'currency_field': 'currency_id'}"
                                                 readonly="1"
