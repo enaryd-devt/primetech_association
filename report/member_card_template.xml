@@ -2,652 +2,125 @@
 
 <odoo>
 
-    <!-- ========================================================= -->
-    <!-- CARTE DE MEMBRE A6                                        -->
-    <!-- ========================================================= -->
-
+    <!-- Carte de membre A6 : design contemporain, optimisé pour PDF. -->
     <template id="report_member_card_document">
 
         <t t-call="web.html_container">
-
             <t t-foreach="docs" t-as="card">
-
                 <t t-call="web.basic_layout">
 
-                    <div
-                        class="page"
-                        style="
-                            margin: 0;
-                            padding: 0;
-                            font-family: 'Lato', 'Helvetica Neue', Helvetica, Arial, sans-serif;
-                            background-color: #ffffff;
-                        ">
+                    <div class="page member-card" style="margin: 0; padding: 0; font-family: Arial, Helvetica, sans-serif; background: #ffffff;">
+                        <style type="text/css">
+                            .member-card table, .member-card tr, .member-card td {
+                                border: 0 none !important;
+                                outline: 0 none !important;
+                            }
+                        </style>
+                        <div style="position: relative; height: 139mm; overflow: hidden; background: #ffffff;">
 
-                    <!-- ================================================= -->
-                    <!-- CARTE                                              -->
-                    <!-- ================================================= -->
-
-                    <div
-                        style="
-                            position: relative;
-                            height: 139mm;
-                            overflow: hidden;
-                            border: 1px solid #dddddd;
-                            border-radius: 10px;
-                            background-color: #ffffff;
-                        ">
-
-                        <!-- ================================================= -->
-                        <!-- BANDEAU SUPÉRIEUR                                 -->
-                        <!-- ================================================= -->
-
-                        <div
-                            style="
-                                height: 7mm;
-                                background-color: #714B67;
-                            ">
-                        </div>
-
-
-                        <!-- ================================================= -->
-                        <!-- EN-TÊTE                                            -->
-                        <!-- ================================================= -->
-
-                        <div
-                            style="
-                                padding: 6mm 8mm 0 8mm;
-                            ">
-
-                            <table
-                                style="
-                                    width: 100%;
-                                    border-collapse: collapse;
-                                    table-layout: fixed;
-                                ">
-
-                                <tr>
-
-                                    <!-- FILIALE -->
-
-                                    <td
-                                        style="
-                                            width: 68%;
-                                            vertical-align: middle;
-                                            text-align: left;
-                                        ">
-
-                                        <div
-                                            style="
-                                                font-size: 11pt;
-                                                font-weight: 700;
-                                                line-height: 1.3;
-                                                color: #222222;
-                                                text-transform: uppercase;
-                                            ">
-
-                                            <span t-field="card.company_id.name"/>
-
-                                        </div>
-
-                                        <div
-                                            style="
-                                                margin-top: 1.5mm;
-                                                font-size: 6pt;
-                                                font-weight: 600;
-                                                color: #999999;
-                                                letter-spacing: 1.4px;
-                                            ">
-
-                                            ASSOCIATION
-
-                                        </div>
-
-                                    </td>
-
-
-                                    <!-- TYPE DOCUMENT -->
-
-                                    <td
-                                        style="
-                                            width: 32%;
-                                            vertical-align: middle;
-                                            text-align: right;
-                                        ">
-
-                                        <div
-                                            style="
-                                                display: inline-block;
-                                                padding: 2mm 3mm;
-                                                border: 1px solid #e4e4e4;
-                                                border-radius: 5px;
-                                                background-color: #fafafa;
-                                                font-size: 6pt;
-                                                font-weight: 700;
-                                                color: #714B67;
-                                                letter-spacing: 0.8px;
-                                            ">
-
-                                            CARTE DE MEMBRE
-
-                                        </div>
-
-                                    </td>
-
-                                </tr>
-
-                            </table>
-
-                        </div>
-
-
-                        <!-- ================================================= -->
-                        <!-- SÉPARATEUR                                         -->
-                        <!-- ================================================= -->
-
-                        <div
-                            style="
-                                margin: 4mm 8mm 0 8mm;
-                                border-top: 1px solid #eeeeee;
-                            ">
-                        </div>
-
-
-                        <!-- ================================================= -->
-                        <!-- IDENTITÉ                                           -->
-                        <!-- ================================================= -->
-
-                        <div
-                            style="
-                                padding: 6mm 8mm 0 8mm;
-                            ">
-
-                            <table
-                                style="
-                                    width: 100%;
-                                    border-collapse: collapse;
-                                    table-layout: fixed;
-                                ">
-
-                                <tr>
-
-                                    <!-- ===================================== -->
-                                    <!-- PHOTO                                 -->
-                                    <!-- ===================================== -->
-
-                                    <td
-                                        style="
-                                            width: 36%;
-                                            vertical-align: middle;
-                                            text-align: center;
-                                        ">
-
-                                        <img
-                                            t-if="card.image_128"
-                                            t-att-src="image_data_uri(card.image_128)"
-                                            style="
-                                                display: block;
-                                                width: 31mm;
-                                                height: 31mm;
-                                                margin: 0 auto;
-                                                object-fit: cover;
-                                                border-radius: 50%;
-                                                border: 2px solid #714B67;
-                                                padding: 1mm;
-                                                background-color: #ffffff;
-                                            "/>
-
-                                        <div
-                                            t-if="not card.image_128"
-                                            style="
-                                                width: 31mm;
-                                                height: 31mm;
-                                                margin: 0 auto;
-                                                border-radius: 50%;
-                                                border: 2px solid #714B67;
-                                                background-color: #f7f7f7;
-                                                text-align: center;
-                                                line-height: 31mm;
-                                                font-size: 6pt;
-                                                font-weight: 700;
-                                                color: #999999;
-                                            ">
-
-                                            PHOTO
-
-                                        </div>
-
-                                    </td>
-
-
-                                    <!-- ===================================== -->
-                                    <!-- INFORMATIONS MEMBRE                   -->
-                                    <!-- ===================================== -->
-
-                                    <td
-                                        style="
-                                            width: 64%;
-                                            padding-left: 5mm;
-                                            vertical-align: middle;
-                                            text-align: left;
-                                        ">
-
-                                        <div
-                                            style="
-                                                font-size: 6pt;
-                                                font-weight: 600;
-                                                color: #999999;
-                                                letter-spacing: 1px;
-                                            ">
-
-                                            TITULAIRE
-
-                                        </div>
-
-
-                                        <div
-                                            style="
-                                                margin-top: 1.5mm;
-                                                font-size: 14pt;
-                                                font-weight: 700;
-                                                line-height: 1.25;
-                                                color: #222222;
-                                            ">
-
-                                            <span t-field="card.member_id.name"/>
-
-                                        </div>
-
-
-                                        <!-- CODE MEMBRE -->
-
-                                        <div
-                                            style="
-                                                margin-top: 4mm;
-                                            ">
-
-                                            <div
-                                                style="
-                                                    font-size: 6pt;
-                                                    font-weight: 600;
-                                                    color: #999999;
-                                                    letter-spacing: 0.8px;
-                                                ">
-
-                                                CODE MEMBRE
-
+                            <!-- En-tête identitaire -->
+                            <div style="height: 42mm; padding: 7mm 8mm 0; background: #111827; color: #ffffff;">
+                                <table style="width: 100%; border: 0 none !important; border-collapse: collapse; border-spacing: 0; table-layout: fixed;">
+                                    <tr style="border: 0 none !important;">
+                                        <td style="border: 0 none !important; width: 68%; vertical-align: top; text-align: left;">
+                                            <div style="font-size: 6.5pt; font-weight: 700; letter-spacing: 1.6px; color: #5eead4; text-transform: uppercase;">
+                                                Association
                                             </div>
-
-                                            <div
-                                                style="
-                                                    margin-top: 1mm;
-                                                    font-size: 9pt;
-                                                    font-weight: 700;
-                                                    color: #714B67;
-                                                ">
-
-                                                <span t-field="card.member_code"/>
-
+                                            <div style="margin-top: 2.5mm; font-size: 12pt; font-weight: 700; line-height: 1.18; color: #ffffff; text-transform: uppercase;">
+                                                <span t-field="card.company_id.name"/>
                                             </div>
-
-                                        </div>
-
-
-                                        <!-- FONCTION -->
-
-                                        <div
-                                            style="
-                                                margin-top: 3mm;
-                                            ">
-
-                                            <div
-                                                style="
-                                                    font-size: 6pt;
-                                                    font-weight: 600;
-                                                    color: #999999;
-                                                    letter-spacing: 0.8px;
-                                                ">
-
-                                                FONCTION
-
-                                            </div>
-
-                                            <div
-                                                style="
-                                                    margin-top: 1mm;
-                                                    font-size: 8pt;
-                                                    font-weight: 600;
-                                                    color: #444444;
-                                                ">
-
-                                                <span
-                                                    t-if="card.function_id"
-                                                    t-field="card.function_id.name"/>
-
-                                                <span t-if="not card.function_id">
-                                                    -
-                                                </span>
-
-                                            </div>
-
-                                        </div>
-
-                                    </td>
-
-                                </tr>
-
-                            </table>
-
-                        </div>
-
-
-                        <!-- ================================================= -->
-                        <!-- NUMÉRO DE CARTE                                   -->
-                        <!-- ================================================= -->
-
-                        <div
-                            style="
-                                margin: 6mm 8mm 0 8mm;
-                                padding: 4mm 5mm;
-                                border: 1px solid #e5e5e5;
-                                border-radius: 7px;
-                                background-color: #fafafa;
-                            ">
-
-                            <table
-                                style="
-                                    width: 100%;
-                                    border-collapse: collapse;
-                                ">
-
-                                <tr>
-
-                                    <td
-                                        style="
-                                            vertical-align: middle;
-                                            text-align: left;
-                                        ">
-
-                                        <div
-                                            style="
-                                                font-size: 6pt;
-                                                font-weight: 600;
-                                                color: #999999;
-                                                letter-spacing: 1px;
-                                            ">
-
-                                            NUM&#201;RO DE CARTE
-
-                                        </div>
-
-                                    </td>
-
-
-                                    <td
-                                        style="
-                                            vertical-align: middle;
-                                            text-align: right;
-                                        ">
-
-                                        <div
-                                            style="
-                                                font-size: 12pt;
-                                                font-weight: 700;
-                                                color: #222222;
-                                                letter-spacing: 0.7px;
-                                            ">
-
-                                            <span t-field="card.card_number"/>
-
-                                        </div>
-
-                                    </td>
-
-                                </tr>
-
-                            </table>
-
-                        </div>
-
-
-                        <!-- ================================================= -->
-                        <!-- INFORMATIONS COMPLÉMENTAIRES                       -->
-                        <!-- ================================================= -->
-
-                        <div
-                            style="
-                                margin: 6mm 8mm 0 8mm;
-                            ">
-
-                            <table
-                                style="
-                                    width: 100%;
-                                    border-collapse: collapse;
-                                    table-layout: fixed;
-                                ">
-
-                                <tr>
-
-                                    <!-- CATÉGORIE -->
-
-                                    <td
-                                        style="
-                                            width: 50%;
-                                            padding-right: 4mm;
-                                            vertical-align: top;
-                                            text-align: left;
-                                        ">
-
-                                        <div
-                                            style="
-                                                font-size: 6pt;
-                                                font-weight: 600;
-                                                color: #999999;
-                                                letter-spacing: 0.8px;
-                                            ">
-
-                                            CAT&#201;GORIE
-
-                                        </div>
-
-                                        <div
-                                            style="
-                                                margin-top: 1.5mm;
-                                                font-size: 8.5pt;
-                                                font-weight: 700;
-                                                color: #333333;
-                                                line-height: 1.3;
-                                            ">
-
-                                            <span t-field="card.category_id.name"/>
-
-                                        </div>
-
-                                    </td>
-
-
-                                    <!-- ÉTAT -->
-
-                                    <td
-                                        style="
-                                            width: 50%;
-                                            padding-left: 4mm;
-                                            vertical-align: top;
-                                            text-align: right;
-                                        ">
-
-                                        <div
-                                            style="
-                                                font-size: 6pt;
-                                                font-weight: 600;
-                                                color: #999999;
-                                                letter-spacing: 0.8px;
-                                            ">
-
-                                            STATUT
-
-                                        </div>
-
-                                        <div
-                                            style="
-                                                margin-top: 1.5mm;
-                                                font-size: 8.5pt;
-                                                font-weight: 700;
-                                                color: #714B67;
-                                            ">
-
-                                            <span t-field="card.state"/>
-
-                                        </div>
-
-                                    </td>
-
-                                </tr>
-
-                            </table>
-
-
-                            <!-- ============================================= -->
-                            <!-- DATES                                          -->
-                            <!-- ============================================= -->
-
-                            <div
-                                style="
-                                    margin-top: 5mm;
-                                    padding-top: 4mm;
-                                    border-top: 1px solid #eeeeee;
-                                ">
-
-                                <table
-                                    style="
-                                        width: 100%;
-                                        border-collapse: collapse;
-                                        table-layout: fixed;
-                                    ">
-
-                                    <tr>
-
-                                        <!-- ÉMISSION -->
-
-                                        <td
-                                            style="
-                                                width: 50%;
-                                                padding-right: 4mm;
-                                                vertical-align: top;
-                                                text-align: left;
-                                            ">
-
-                                            <div
-                                                style="
-                                                    font-size: 6pt;
-                                                    font-weight: 600;
-                                                    color: #999999;
-                                                    letter-spacing: 0.8px;
-                                                ">
-
-                                                DATE D'&#201;MISSION
-
-                                            </div>
-
-                                            <div
-                                                style="
-                                                    margin-top: 1.5mm;
-                                                    font-size: 8.5pt;
-                                                    font-weight: 700;
-                                                    color: #333333;
-                                                ">
-
-                                                <span t-field="card.issue_date"/>
-
-                                            </div>
-
                                         </td>
-
-
-                                        <!-- EXPIRATION -->
-
-                                        <td
-                                            style="
-                                                width: 50%;
-                                                padding-left: 4mm;
-                                                vertical-align: top;
-                                                text-align: right;
-                                            ">
-
-                                            <div
-                                                style="
-                                                    font-size: 6pt;
-                                                    font-weight: 600;
-                                                    color: #999999;
-                                                    letter-spacing: 0.8px;
-                                                ">
-
-                                                DATE D'EXPIRATION
-
+                                        <td style="border: 0 none !important; width: 32%; vertical-align: top; text-align: right;">
+                                            <div style="display: inline-block; padding: 2mm 2.5mm; border: 1px solid #475569; border-radius: 8mm; font-size: 6.5pt; font-weight: 700; letter-spacing: .8px; color: #e2e8f0; text-transform: uppercase;">
+                                                Membre
                                             </div>
-
-                                            <div
-                                                style="
-                                                    margin-top: 1.5mm;
-                                                    font-size: 8.5pt;
-                                                    font-weight: 700;
-                                                    color: #333333;
-                                                ">
-
-                                                <span t-field="card.expiry_date"/>
-
-                                            </div>
-
                                         </td>
-
                                     </tr>
-
                                 </table>
+                            </div>
 
+                            <!-- Accent graphique PDF-compatible -->
+                            <div style="position: absolute; top: 34mm; right: -11mm; width: 39mm; height: 12mm; background: #14b8a6; transform: rotate(-18deg);">
+                            </div>
+                            <div style="position: absolute; top: 38mm; right: 8mm; width: 20mm; height: 2mm; background: #99f6e4; transform: rotate(-18deg);">
+                            </div>
+
+                            <!-- Identité du titulaire -->
+                            <div style="position: relative; margin: -11mm 8mm 0; padding: 5mm; border: 0 none; border-radius: 3mm; background: #ffffff;">
+                                <table style="width: 100%; border: 0 none !important; border-collapse: collapse; border-spacing: 0; table-layout: fixed;">
+                                    <tr style="border: 0 none !important;">
+                                        <td style="border: 0 none !important; width: 35%; vertical-align: middle; text-align: center;">
+                                            <img t-if="card.image_128" t-att-src="image_data_uri(card.image_128)" style="display: block; width: 27mm; height: 27mm; margin: 0 auto; object-fit: cover; object-position: center; border: 1.5mm solid #ccfbf1; border-radius: 50%; background: #f8fafc;"/>
+                                            <div t-if="not card.image_128" style="width: 27mm; height: 27mm; margin: 0 auto; border: 1.5mm solid #ccfbf1; border-radius: 50%; background: #f0fdfa; color: #0f766e; font-size: 7pt; font-weight: 700; line-height: 27mm; text-align: center;">
+                                                PHOTO
+                                            </div>
+                                        </td>
+                                        <td style="border: 0 none !important; width: 65%; padding-left: 4mm; vertical-align: middle; text-align: left;">
+                                            <div style="font-size: 6.5pt; font-weight: 700; letter-spacing: 1.2px; color: #64748b; text-transform: uppercase;">Titulaire</div>
+                                            <div style="margin-top: 1.5mm; font-size: 13pt; font-weight: 700; line-height: 1.12; color: #0f172a;"><span t-field="card.member_id.name"/></div>
+                                            <div style="margin-top: 3mm; font-size: 6.5pt; font-weight: 700; letter-spacing: .9px; color: #64748b; text-transform: uppercase;">Code membre</div>
+                                            <div style="margin-top: 1mm; font-size: 9pt; font-weight: 700; color: #0f766e;"><span t-field="card.member_code"/></div>
+                                        </td>
+                                    </tr>
+                                </table>
+                            </div>
+
+                            <!-- Numéro de carte -->
+                            <div style="margin: 6mm 8mm 0; padding: 4mm 5mm; border-radius: 2.5mm; background: #f0fdfa; border-left: 1.5mm solid #14b8a6;">
+                                <table style="width: 100%; border: 0 none !important; border-collapse: collapse; border-spacing: 0;">
+                                    <tr style="border: 0 none !important;">
+                                        <td style="border: 0 none !important; vertical-align: middle; text-align: left;">
+                                            <div style="font-size: 6.5pt; font-weight: 700; letter-spacing: 1px; color: #0f766e; text-transform: uppercase;">Numéro de carte</div>
+                                        </td>
+                                        <td style="border: 0 none !important; vertical-align: middle; text-align: right;">
+                                            <div style="font-size: 12pt; font-weight: 700; letter-spacing: .7px; color: #0f172a;"><span t-field="card.card_number"/></div>
+                                        </td>
+                                    </tr>
+                                </table>
+                            </div>
+
+                            <!-- Informations de validité -->
+                            <div style="margin: 6mm 8mm 0;">
+                                <table style="width: 100%; border: 0 none !important; border-collapse: collapse; border-spacing: 0; table-layout: fixed;">
+                                    <tr style="border: 0 none !important;">
+                                        <td style="border: 0 none !important; width: 50%; padding-right: 4mm; vertical-align: top; text-align: left;">
+                                            <div style="font-size: 6.5pt; font-weight: 700; letter-spacing: .9px; color: #64748b; text-transform: uppercase;">Catégorie</div>
+                                            <div style="margin-top: 1.5mm; font-size: 9.5pt; font-weight: 700; line-height: 1.25; color: #1e293b;"><span t-field="card.category_id.name"/></div>
+                                        </td>
+                                        <td style="border: 0 none !important; width: 50%; padding-left: 4mm; vertical-align: top; text-align: right;">
+                                            <div style="font-size: 6.5pt; font-weight: 700; letter-spacing: .9px; color: #64748b; text-transform: uppercase;">Fonction</div>
+                                            <div style="margin-top: 1.5mm; font-size: 9.5pt; font-weight: 700; line-height: 1.25; color: #1e293b;"><span t-if="card.function_id" t-field="card.function_id.name"/><span t-if="not card.function_id">—</span></div>
+                                        </td>
+                                    </tr>
+                                </table>
+                                <div style="margin-top: 5mm; padding-top: 4mm; border-top: 1px solid #e2e8f0;">
+                                    <table style="width: 100%; border: 0 none !important; border-collapse: collapse; border-spacing: 0; table-layout: fixed;">
+                                        <tr style="border: 0 none !important;">
+                                            <td style="border: 0 none !important; width: 50%; padding-right: 4mm; vertical-align: top; text-align: left;">
+                                                <div style="font-size: 6.5pt; font-weight: 700; letter-spacing: .9px; color: #64748b; text-transform: uppercase;">Émise le</div>
+                                                <div style="margin-top: 1.5mm; font-size: 9.5pt; font-weight: 700; color: #1e293b;"><span t-field="card.issue_date"/></div>
+                                            </td>
+                                            <td style="border: 0 none !important; width: 50%; padding-left: 4mm; vertical-align: top; text-align: right;">
+                                                <div style="font-size: 6.5pt; font-weight: 700; letter-spacing: .9px; color: #64748b; text-transform: uppercase;">Valide jusqu'au</div>
+                                                <div style="margin-top: 1.5mm; font-size: 9.5pt; font-weight: 700; color: #1e293b;"><span t-field="card.expiry_date"/></div>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <!-- Pied de carte -->
+                            <div style="position: absolute; right: 8mm; bottom: 5mm; left: 8mm; padding-top: 3.5mm; border-top: 1px solid #e2e8f0; text-align: center;">
+                                <div style="font-size: 6.5pt; font-weight: 700; letter-spacing: .8px; color: #0f766e; text-transform: uppercase;">Membre <span style="color: #cbd5e1;">•</span> <span t-field="card.state"/></div>
+                                <div style="margin-top: 1.5mm; font-size: 6.5pt; line-height: 1.35; color: #94a3b8;">Carte personnelle et non cessible. À présenter pour toute identification.</div>
                             </div>
 
                         </div>
-
-
-                        <!-- ================================================= -->
-                        <!-- PIED                                               -->
-                        <!-- ================================================= -->
-
-                        <div
-                            style="
-                                position: absolute;
-                                left: 8mm;
-                                right: 8mm;
-                                bottom: 5mm;
-                                padding-top: 3mm;
-                                border-top: 1px solid #eeeeee;
-                                text-align: center;
-                            ">
-
-                            <div
-                                style="
-                                    font-size: 5.5pt;
-                                    color: #999999;
-                                    line-height: 1.6;
-                                ">
-
-                                Cette carte est strictement personnelle.
-
-                                <br/>
-
-                                Elle identifie son titulaire comme membre de l'association.
-
-                            </div>
-
-                        </div>
-
                     </div>
 
-                </div>
-
+                </t>
             </t>
-
         </t>
-    </t>
 
     </template>
 
