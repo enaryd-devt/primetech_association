@@ -922,14 +922,6 @@
                                         invisible="not subscription_report_available"/>
 
                                     <button
-                                        name="action_print_subscription_report"
-                                        type="object"
-                                        string="Imprimer le rapport PDF"
-                                        icon="fa-print"
-                                        class="btn-primary"
-                                        invisible="not subscription_report_available"/>
-
-                                    <button
                                         name="action_close_subscription_cycle"
                                         type="object"
                                         string="Terminer le cycle"

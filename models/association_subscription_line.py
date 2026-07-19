@@ -883,10 +883,6 @@ class AssociationSubscriptionLine(models.Model):
             "association.member.account"
         ]
 
-        AccountTransaction = self.env[
-            "association.member.account.transaction"
-        ]
-
         Payment = self.env[
             "association.payment"
         ]
@@ -1244,115 +1240,19 @@ class AssociationSubscriptionLine(models.Model):
             )
 
         # ======================================================
-        # CONFIRMATION DIRECTE DU PAIEMENT
+        # VALIDATION MÉTIER CENTRALISÉE
         #
-        # NE PAS APPELER action_confirm()
+        # ``association.payment`` is the single source of truth for payment
+        # confirmation: it debits the member account once, recalculates the
+        # subscription line and invalidates the meeting statistics.
         # ======================================================
-
-        payment.write(
-            {
-                "state":
-                    "confirmed",
-            }
-        )
-
-        self.env.flush_all()
-
-        # ======================================================
-        # DÉBIT DU COMPTE MEMBRE
-        # ======================================================
-
-        transaction_values = {
-            "account_id":
-                member_account.id,
-
-            "transaction_type":
-                "debit",
-
-            "amount":
-                amount_to_pay,
-
-            "transaction_date":
-                fields.Datetime.now(),
-
-            "payment_id":
-                payment.id,
-
-            "description":
-                _(
-                    "Paiement du cycle %(period)s - "
-                    "%(subscription)s"
-                )
-                % {
-                    "period":
-                        period.display_name,
-
-                    "subscription":
-                        self.subscription_id.display_name,
-                },
-        }
-
-        # ======================================================
-        # CHAMPS OPTIONNELS
-        # ======================================================
-
-        if (
-            "origin_type"
-            in AccountTransaction._fields
-        ):
-            transaction_values[
-                "origin_type"
-            ] = "subscription_payment"
-
-        if (
-            "origin_model"
-            in AccountTransaction._fields
-        ):
-            transaction_values[
-                "origin_model"
-            ] = payment._name
-
-        if (
-            "origin_res_id"
-            in AccountTransaction._fields
-        ):
-            transaction_values[
-                "origin_res_id"
-            ] = payment.id
-
-        if (
-            "origin_reference"
-            in AccountTransaction._fields
-        ):
-            transaction_values[
-                "origin_reference"
-            ] = payment.name
-
-        transaction = AccountTransaction.create(
-            transaction_values
-        )
-
-        # ======================================================
-        # VALIDATION DU MOUVEMENT
-        # ======================================================
-
-        if hasattr(
-            transaction,
-            "action_validate",
-        ):
-            transaction.action_validate()
-
-        elif hasattr(
-            transaction,
-            "action_post",
-        ):
-            transaction.action_post()
-
-        elif hasattr(
-            transaction,
-            "action_confirm",
-        ):
-            transaction.action_confirm()
+        payment.action_collect()
+        payment.action_confirm()
+        payment.invalidate_recordset(["state"])
+        if payment.state != "confirmed":
+            raise ValidationError(
+                _("Le paiement depuis le compte membre n'a pas pu être validé.")
+            )
 
         # ======================================================
         # FLUSH
