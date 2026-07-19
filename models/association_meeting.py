@@ -1418,12 +1418,17 @@ class AssociationMeeting(models.Model):
         # CRÉATION DE L'ATTRIBUTION
         # ======================================================
 
+        session = self.subscription_session_id or self.subscription_session_ids.filtered(
+            lambda item: item.period_id == period
+        )[:1]
+
         allocation = self.env[
             "association.subscription.allocation"
         ].create(
             {
                 "period_id": period.id,
                 "meeting_id": self.id,
+                "meeting_subscription_session_id": session.id,
                 "beneficiary_id":
                     self.pot_beneficiary_id.id,
                 "amount": amount,

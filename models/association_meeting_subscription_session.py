@@ -281,6 +281,17 @@ class AssociationMeetingSubscriptionSession(models.Model):
 
     def action_mark_closed(self):
         for session in self:
+            # Older allocations created from the meeting did not carry the
+            # session link. Attach the allocations of this exact meeting and
+            # period before freezing the closure totals and PDF data.
+            allocations = session.period_id.allocation_ids.filtered(
+                lambda allocation: allocation.meeting_id == session.meeting_id
+                and not allocation.meeting_subscription_session_id
+            )
+            if allocations:
+                allocations.write({
+                    "meeting_subscription_session_id": session.id,
+                })
             session._create_cycle_snapshot()
             snapshots = session.snapshot_ids
             paid = snapshots.filtered(lambda item: item.payment_state == "paid")
