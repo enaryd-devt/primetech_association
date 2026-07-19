@@ -15,26 +15,65 @@
             <t t-foreach="docs" t-as="session">
                 <t t-call="web.external_layout">
                     <div class="page">
-                        <h2>Rapport de clôture de cotisation</h2>
-                        <p><strong>Réunion :</strong> <span t-field="session.meeting_id"/></p>
-                        <p><strong>Cotisation :</strong> <span t-field="session.subscription_id"/></p>
-                        <p><strong>Cycle :</strong> <span t-field="session.period_id"/></p>
-                        <p><strong>Montant attendu :</strong> <span t-field="session.closed_expected_amount"/></p>
-                        <p><strong>Montant encaissé :</strong> <span t-field="session.closed_collected_amount"/></p>
-                        <p><strong>Membres réglés :</strong> <span t-field="session.closed_paid_count"/></p>
-                        <p><strong>Clôturée le :</strong> <span t-field="session.closed_at"/></p>
-                        <p><strong>Clôturée par :</strong> <span t-field="session.closed_by_id"/></p>
-                        <h3>Encaissements</h3>
-                        <table class="table table-sm">
-                            <thead><tr><th>Membre</th><th>Dû à la séance</th><th>Réglé à la clôture</th><th>Reste à la clôture</th><th>État du cycle</th></tr></thead>
-                            <tbody><tr t-foreach="session.collection_ids" t-as="line"><td><span t-field="line.member_id"/></td><td><span t-field="line.initial_due_amount"/></td><td><span t-field="line.frozen_amount_paid"/></td><td><span t-field="line.frozen_balance"/></td><td><span t-field="line.frozen_payment_state"/></td></tr></tbody>
+                        <style>
+                            .subscription-report-header { border-bottom: 3px solid #1f4e78; margin-bottom: 18px; padding-bottom: 10px; }
+                            .subscription-report-title { color: #1f4e78; font-size: 22px; font-weight: 700; margin: 0; }
+                            .subscription-report-subtitle { color: #6c757d; font-size: 11px; margin: 4px 0 0; }
+                            .subscription-report-section { color: #1f4e78; font-size: 14px; font-weight: 700; margin: 20px 0 8px; }
+                            .subscription-report-summary { margin: 0 -5px 16px; }
+                            .subscription-report-summary td { border: 1px solid #d9e2f3; padding: 8px 10px; width: 25%; }
+                            .subscription-report-summary .label { color: #52616b; display: block; font-size: 9px; text-transform: uppercase; }
+                            .subscription-report-summary .value { color: #1f4e78; display: block; font-size: 15px; font-weight: 700; margin-top: 3px; }
+                            .subscription-report-table { font-size: 10px; width: 100%; }
+                            .subscription-report-table th { background: #1f4e78; color: #fff; font-weight: 700; padding: 7px 5px; }
+                            .subscription-report-table td { border-bottom: 1px solid #d9e2f3; padding: 6px 5px; vertical-align: top; }
+                            .subscription-report-table .amount { text-align: right; white-space: nowrap; }
+                            .subscription-report-empty { border: 1px dashed #adb5bd; color: #6c757d; font-style: italic; padding: 10px; }
+                            .subscription-report-note { background: #f4f8fc; border-left: 3px solid #1f4e78; padding: 10px; white-space: pre-line; }
+                        </style>
+                        <div class="subscription-report-header">
+                            <h2 class="subscription-report-title">Rapport de clôture de cotisation</h2>
+                            <p class="subscription-report-subtitle">Synthèse des encaissements et de la situation finale du cycle.</p>
+                        </div>
+                        <table class="table table-borderless" style="font-size: 11px; margin-bottom: 12px;">
+                            <tr>
+                                <td><strong>Réunion :</strong> <span t-field="session.meeting_id"/></td>
+                                <td><strong>Cycle :</strong> <span t-field="session.period_id"/></td>
+                            </tr>
+                            <tr>
+                                <td><strong>Cotisation :</strong> <span t-field="session.subscription_id"/></td>
+                                <td><strong>Clôturée par :</strong> <span t-field="session.closed_by_id"/></td>
+                            </tr>
                         </table>
-                        <h3>Bénéficiaires attribués</h3>
-                        <table class="table table-sm">
-                            <thead><tr><th>Bénéficiaire</th><th>Montant</th><th>Statut</th></tr></thead>
-                            <tbody><tr t-foreach="session.allocation_ids" t-as="allocation"><td><span t-field="allocation.beneficiary_id"/></td><td><span t-field="allocation.amount"/></td><td><span t-field="allocation.state"/></td></tr></tbody>
+                        <table class="subscription-report-summary">
+                            <tr>
+                                <td><span class="label">Montant attendu</span><span class="value" t-field="session.closed_expected_amount"/></td>
+                                <td><span class="label">Montant encaissé</span><span class="value" t-field="session.closed_collected_amount"/></td>
+                                <td><span class="label">Membres réglés</span><span class="value" t-field="session.closed_paid_count"/></td>
+                                <td><span class="label">Date de clôture</span><span class="value" t-field="session.closed_at" t-options="{'widget': 'datetime', 'format': 'dd/MM/yyyy HH:mm'}"/></td>
+                            </tr>
                         </table>
-                        <h3>Décision</h3><p t-field="session.closure_note"/>
+
+                        <h3 class="subscription-report-section">Détail des encaissements validés</h3>
+                        <table class="subscription-report-table">
+                            <thead><tr><th>N° paiement</th><th>Date</th><th>Membre</th><th>Mode</th><th>Référence</th><th class="amount">Montant</th></tr></thead>
+                            <tbody>
+                                <tr t-foreach="session.payment_ids.filtered(lambda payment: payment.state in ('collected', 'confirmed'))" t-as="payment">
+                                    <td><span t-field="payment.name"/></td><td><span t-field="payment.payment_date"/></td><td><span t-field="payment.member_id"/></td><td><span t-field="payment.payment_method"/></td><td><span t-field="payment.payment_reference"/></td><td class="amount"><span t-field="payment.amount"/></td>
+                                </tr>
+                                <tr t-if="not session.payment_ids.filtered(lambda payment: payment.state in ('collected', 'confirmed'))"><td colspan="6" class="subscription-report-empty">Aucun encaissement validé pour cette session.</td></tr>
+                            </tbody>
+                            <tfoot><tr><td colspan="5" style="text-align: right; font-weight: 700;">Total des encaissements validés</td><td class="amount" style="font-weight: 700;"><span t-field="session.payment_total"/></td></tr></tfoot>
+                        </table>
+
+                        <h3 class="subscription-report-section">Situation des membres à la clôture</h3>
+                        <table class="subscription-report-table">
+                            <thead><tr><th>Membre</th><th class="amount">Dû</th><th class="amount">Pénalité</th><th class="amount">Réglé</th><th class="amount">Impayé</th><th>État</th></tr></thead>
+                            <tbody><tr t-foreach="session.snapshot_ids" t-as="line"><td><span t-field="line.member_name"/></td><td class="amount"><span t-field="line.amount_due"/></td><td class="amount"><span t-field="line.penalty_amount"/></td><td class="amount"><span t-field="line.amount_paid"/></td><td class="amount"><span t-field="line.balance"/></td><td><span t-field="line.payment_state"/></td></tr></tbody>
+                        </table>
+
+                        <h3 class="subscription-report-section">Décision de clôture</h3>
+                        <div class="subscription-report-note"><span t-field="session.closure_note"/></div>
                     </div>
                 </t>
             </t>

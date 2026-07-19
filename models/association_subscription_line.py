@@ -1067,24 +1067,17 @@ class AssociationSubscriptionLine(models.Model):
             member_account.balance or 0.0
         )
 
-        if available_balance < amount_to_pay:
+        if available_balance <= 0:
             raise ValidationError(
                 _(
-                    "Solde du compte membre insuffisant.\n\n"
-                    "Disponible : %(available).2f %(currency)s\n"
-                    "Montant requis : %(required).2f %(currency)s"
+                    "Le compte membre ne dispose d'aucun solde disponible."
                 )
-                % {
-                    "available":
-                        available_balance,
-
-                    "required":
-                        amount_to_pay,
-
-                    "currency":
-                        self.currency_id.name or "",
-                }
             )
+
+        # A member-account payment can settle only the available amount.  The
+        # remaining balance stays due and the line becomes ``partial`` after
+        # confirmation, exactly like an external partial payment.
+        amount_to_pay = min(amount_to_pay, available_balance)
 
         # ======================================================
         # DATE DU PAIEMENT
@@ -1103,6 +1096,18 @@ class AssociationSubscriptionLine(models.Model):
             and payment_date > period.period_end_date
         ):
             payment_date = period.period_end_date
+
+        # When this action is triggered from a meeting, keep the payment in
+        # the exact session/cycle displayed by that meeting.  Without these
+        # links the payment is confirmed but is ignored by the cycle and
+        # session statistics, so the table keeps showing an unpaid member.
+        meeting = self.env["association.meeting"].browse(
+            self.env.context.get("default_meeting_id")
+        ).exists()
+        session = meeting.subscription_session_ids.filtered(
+            lambda item: item.subscription_id == self.subscription_id
+            and item.period_id == period
+        )[:1] if meeting else self.env["association.meeting.subscription.session"]
 
         # ======================================================
         # CRÉATION DU PAIEMENT
@@ -1132,6 +1137,10 @@ class AssociationSubscriptionLine(models.Model):
                 "meeting_id": self.env.context.get(
                     "default_meeting_id"
                 ),
+
+                "meeting_subscription_session_id": session.id,
+
+                "subscription_period_id": period.id,
 
                 "has_allocations":
                     True,
@@ -1463,6 +1472,21 @@ class AssociationSubscriptionLine(models.Model):
             ]
         )
 
+        if meeting:
+            meeting_fields = [
+                "subscription_line_ids",
+                "collection_count",
+                "collection_paid_count",
+                "collection_pending_count",
+                "collection_total",
+                "pot_collected_amount",
+                "pot_allocated_amount",
+                "pot_available_amount",
+                "pot_beneficiary_count",
+            ]
+            meeting.invalidate_recordset(meeting_fields)
+            meeting.modified(meeting_fields)
+
         self.env.flush_all()
 
         # ======================================================
@@ -1494,18 +1518,18 @@ class AssociationSubscriptionLine(models.Model):
         # ACTUALISATION DU TABLEAU DES MEMBRES UNIQUEMENT
         # ======================================================
 
+        # Refresh the active Cotisations tab without navigating away from the
+        # meeting or reloading the complete browser page.
         return {
             "type": "ir.actions.client",
             "tag": "primetech_refresh_subscription_table",
             "params": {
-                "subscription_id":
-                    self.subscription_id.id,
-
-                "subscription_line_id":
-                    self.id,
-
-                "field_name":
-                    "line_ids",
+                "subscription_id": self.subscription_id.id,
+                "subscription_line_id": self.id,
+                "field_name": "subscription_line_ids",
+                "origin": "meeting",
+                "meeting_id": meeting.id,
+                "close_dialog": False,
             },
         }
     
