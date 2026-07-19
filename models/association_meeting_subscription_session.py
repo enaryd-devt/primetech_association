@@ -318,6 +318,18 @@ class AssociationMeetingSubscriptionSession(models.Model):
                 "subscription_report_available",
                 "subscription_line_ids",
             ])
+            # The cycle settlement has already attributed or transferred its
+            # entire temporary cash before this method is called.  Mark the
+            # meeting cash as settled as well, otherwise the generic meeting
+            # close check incorrectly blocks the user despite a closed
+            # subscription session and a zero remaining cycle balance.
+            sessions_settled = all(
+                item.state == "closed"
+                and (item.period_id.available_amount or 0.0) <= 0.01
+                for item in session.meeting_id.subscription_session_ids
+            )
+            if sessions_settled:
+                session.meeting_id.write({"pot_settlement_state": "settled"})
         return True
 
     def _create_cycle_snapshot(self):
