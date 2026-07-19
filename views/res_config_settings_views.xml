@@ -40,7 +40,7 @@
                     <block title="Réunions et règlement des cycles" name="association_settlement">
                         <setting string="Compte de règlement par défaut"
                                  help="Compte proposé pour recevoir le reliquat à la finalisation d'un cycle.">
-                            <field name="default_settlement_fund_id" domain="[('active', '=', True)]"/>
+                            <field name="settlement_fund_id" domain="[('active', '=', True)]"/>
                         </setting>
                         <setting string="Traitement du reliquat">
                             <field name="settlement_policy"/>

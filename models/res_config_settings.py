@@ -58,7 +58,7 @@ class ResConfigSettings(models.TransientModel):
         config_parameter="primetech_association.automatic_member_number",
     )
 
-    default_settlement_fund_id = fields.Many2one(
+    settlement_fund_id = fields.Many2one(
         "association.fund", string="Compte de règlement par défaut",
         config_parameter="primetech_association.default_settlement_fund_id",
     )
