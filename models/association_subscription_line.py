@@ -1442,7 +1442,9 @@ class AssociationSubscriptionLine(models.Model):
                 "field_name": "subscription_line_ids",
                 "origin": "meeting",
                 "meeting_id": meeting.id,
-                "close_dialog": False,
+                # The confirmation wizard must close once the central payment
+                # workflow succeeds, then the meeting Cotisations tab reloads.
+                "close_dialog": True,
             },
         }
     
