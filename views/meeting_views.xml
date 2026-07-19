@@ -922,26 +922,13 @@
                                         invisible="not subscription_report_available"/>
 
                                     <button
-                                        name="action_close_subscription_cycle"
-                                        type="object"
-                                        string="Terminer le cycle"
-                                        icon="fa-check-circle"
-                                        class="btn-secondary"
-                                        invisible="
-                                            state == 'closed'
-                                            or not subscription_period_id
-                                            or subscription_report_available
-                                        "
-                                        confirm="Voulez-vous réellement terminer le cycle courant ?"/>
-
-                                    <button
                                         name="action_settle_meeting_pot"
                                         type="object"
-                                        string="Solder et verser le reliquat"
+                                        string="Finaliser le cycle et solder la caisse"
                                         icon="fa-bank"
                                         class="btn-primary"
                                         invisible="state == 'closed' or not subscription_period_id or subscription_report_available"
-                                        confirm="Cette action ouvre la décision de clôture du cycle. Le reliquat ne sera versé qu'après confirmation."/>
+                                        confirm="Cette action finalise le cycle : validez les attributions et versez le reliquat éventuel dans le compte financier choisi."/>
 
                                 </div>
 

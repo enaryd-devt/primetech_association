@@ -1490,11 +1490,11 @@ class AssociationMeeting(models.Model):
         }
 
     def action_settle_meeting_pot(self):
-        """Open the cycle settlement decision from the meeting.
+        """Finalize the meeting cycle and settle its temporary cash.
 
-        Collections remain in the temporary meeting cash until the cycle
-        settlement wizard decides whether all or only the remainder is sent
-        to treasury. This action deliberately creates no fund transaction.
+        This is the single meeting action for cycle closure: it opens the
+        decision flow, validates allocations, transfers any residual to the
+        selected financial account, then locks the cycle and its session.
         """
         self.ensure_one()
         if not self.subscription_period_id:
