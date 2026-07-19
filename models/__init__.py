@@ -35,6 +35,7 @@ from . import association_fund
 
 from . import association_meeting
 from . import association_meeting_subscription_session
+from . import association_meeting_subscription_snapshot
 from . import association_meeting_officer
 from . import association_meeting_attendance
 from . import association_meeting_resolution

@@ -105,6 +105,7 @@ Gestion financière
         "views/member_wallet_transaction_views.xml",
         "views/subscription_cycle_close_wizard_views.xml",
         "views/meeting_subscription_cycle_start_wizard_views.xml",
+        "views/member_account_subscription_payment_wizard_views.xml",
 
         # Configuration (chargée avant les menus qui la référencent)
         "views/configuration_views.xml",
