@@ -4,10 +4,9 @@
     <record id="view_association_settings_form" model="ir.ui.view">
         <field name="name">association.settings.form</field>
         <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="base.res_config_settings_view_form"/>
         <field name="arch" type="xml">
-
-            <form string="Paramètres">
-
+            <xpath expr="//form" position="inside">
                 <app string="Association" name="primetech_association">
                     <block title="Identification" name="association_identity">
                         <setting string="Nom de l'association"
@@ -74,8 +73,7 @@
                         </setting>
                     </block>
                 </app>
-
-            </form>
+            </xpath>
 
         </field>
     </record>
@@ -86,7 +84,6 @@
         <field name="name">Paramètres</field>
         <field name="res_model">res.config.settings</field>
         <field name="view_mode">form</field>
-        <field name="view_id" ref="view_association_settings_form"/>
         <field name="target">inline</field>
 
     </record>
