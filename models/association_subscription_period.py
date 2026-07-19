@@ -634,6 +634,12 @@ class AssociationSubscriptionPeriod(models.Model):
             "association.subscription.cycle.close.wizard"
         ].create({
             "period_id": self.id,
+            # The wizard is created server-side, therefore default_* values
+            # placed only on the returned action are too late.  Persist the
+            # meeting session now so its completion returns to the meeting.
+            "meeting_subscription_session_id": self.env.context.get(
+                "default_meeting_subscription_session_id"
+            ),
         })
 
         # ======================================================

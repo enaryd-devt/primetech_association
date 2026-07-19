@@ -11,6 +11,7 @@
         name="Associations"
         sequence="10"
         groups="primetech_association.group_association_user"
+        web_icon="primetech_association,static/description/icon.png"
     />
 
 

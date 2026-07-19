@@ -14,10 +14,21 @@ class AssociationDashboard(models.AbstractModel):
     # ==========================================================
 
     @api.model
-    def get_dashboard_data(self):
+    def get_dashboard_data(self, options=None):
 
         company = self.env.company
         today = fields.Date.context_today(self)
+        options = options or {}
+        period = options.get("period", "all")
+        months = int(options.get("months", 6) or 6)
+        months = months if months in (3, 6, 12) else 6
+        date_from = False
+        if period == "month":
+            date_from = today.replace(day=1)
+        elif period == "quarter":
+            date_from = today - relativedelta(months=3)
+        elif period == "year":
+            date_from = today.replace(month=1, day=1)
 
         Member = self.env["association.member"]
         Meeting = self.env["association.meeting"]
@@ -183,6 +194,8 @@ class AssociationDashboard(models.AbstractModel):
         payment_domain = [
             ("company_id", "=", company.id),
         ]
+        if date_from:
+            payment_domain.append(("payment_date", ">=", date_from))
 
         payment_count = Payment.search_count(
             payment_domain
@@ -211,7 +224,7 @@ class AssociationDashboard(models.AbstractModel):
             "Janv.", "Févr.", "Mars", "Avr.", "Mai", "Juin",
             "Juil.", "Août", "Sept.", "Oct.", "Nov.", "Déc.",
         ]
-        for offset in range(5, -1, -1):
+        for offset in range(months - 1, -1, -1):
             start = month_start - relativedelta(months=offset)
             end = start + relativedelta(months=1)
             monthly_payments = Payment.search(payment_domain + [
@@ -225,10 +238,13 @@ class AssociationDashboard(models.AbstractModel):
                 "count": len(monthly_payments),
             })
 
-        validated_expenses = Expense.search([
+        expense_domain = [
             ("company_id", "=", company.id),
             ("state", "=", "validated"),
-        ])
+        ]
+        if date_from:
+            expense_domain.append(("expense_date", ">=", date_from))
+        validated_expenses = Expense.search(expense_domain)
         expense_total = sum(validated_expenses.mapped("amount"))
         expense_labels = dict(
             Expense._fields["expense_type"]._description_selection(self.env)
