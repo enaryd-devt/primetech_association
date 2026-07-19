@@ -37,6 +37,42 @@
                             <field name="membership_card_validity"/>
                         </setting>
                     </block>
+                    <block title="Réunions et règlement des cycles" name="association_settlement">
+                        <setting string="Compte de règlement par défaut"
+                                 help="Compte proposé pour recevoir le reliquat à la finalisation d'un cycle.">
+                            <field name="default_settlement_fund_id" domain="[('active', '=', True)]"/>
+                        </setting>
+                        <setting string="Traitement du reliquat">
+                            <field name="settlement_policy"/>
+                        </setting>
+                        <setting string="Règlement obligatoire avant clôture de réunion">
+                            <field name="require_session_settlement"/>
+                        </setting>
+                        <setting string="Tolérance de règlement"
+                                 help="Écart maximal accepté pour considérer une caisse comme soldée.">
+                            <field name="settlement_tolerance"/>
+                        </setting>
+                    </block>
+                    <block title="Comptes membres et excédents" name="association_member_accounts">
+                        <setting string="Paiement depuis le compte membre">
+                            <field name="allow_member_account_payment"/>
+                        </setting>
+                        <setting string="Moment du débit du compte membre"
+                                 invisible="not allow_member_account_payment">
+                            <field name="member_account_debit_timing"/>
+                        </setting>
+                        <setting string="Traitement par défaut des surplus">
+                            <field name="surplus_policy"/>
+                        </setting>
+                    </block>
+                    <block title="Documents et références" name="association_documents">
+                        <setting string="Préfixe des références de paiement">
+                            <field name="payment_reference_prefix"/>
+                        </setting>
+                        <setting string="Pied de page des rapports">
+                            <field name="report_footer" placeholder="Mention à afficher sur les rapports PDF..."/>
+                        </setting>
+                    </block>
                 </app>
 
             </form>

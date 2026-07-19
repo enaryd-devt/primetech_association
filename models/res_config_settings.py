@@ -57,3 +57,45 @@ class ResConfigSettings(models.TransientModel):
         default=True,
         config_parameter="primetech_association.automatic_member_number",
     )
+
+    default_settlement_fund_id = fields.Many2one(
+        "association.fund", string="Compte de règlement par défaut",
+        config_parameter="primetech_association.default_settlement_fund_id",
+    )
+    settlement_policy = fields.Selection([
+        ("decision", "Décision à la clôture"),
+        ("treasury", "Verser le reliquat en trésorerie"),
+    ], string="Traitement du reliquat", default="decision",
+       config_parameter="primetech_association.settlement_policy")
+    require_session_settlement = fields.Boolean(
+        string="Exiger le règlement des sessions avant la clôture",
+        default=True,
+        config_parameter="primetech_association.require_session_settlement",
+    )
+    settlement_tolerance = fields.Float(
+        string="Tolérance de règlement", default=0.01,
+        config_parameter="primetech_association.settlement_tolerance",
+    )
+    allow_member_account_payment = fields.Boolean(
+        string="Autoriser le paiement depuis le compte membre", default=True,
+        config_parameter="primetech_association.allow_member_account_payment",
+    )
+    member_account_debit_timing = fields.Selection([
+        ("finalization", "À la finalisation du cycle"),
+        ("immediate", "À la confirmation du paiement"),
+    ], string="Débit du compte membre", default="finalization",
+       config_parameter="primetech_association.member_account_debit_timing")
+    surplus_policy = fields.Selection([
+        ("ask", "Demander à chaque surplus"),
+        ("credit", "Créditer le compte membre"),
+        ("refund", "Rembourser le surplus"),
+    ], string="Traitement par défaut des surplus", default="ask",
+       config_parameter="primetech_association.surplus_policy")
+    payment_reference_prefix = fields.Char(
+        string="Préfixe des références de paiement", default="PAY",
+        config_parameter="primetech_association.payment_reference_prefix",
+    )
+    report_footer = fields.Char(
+        string="Pied de page des rapports",
+        config_parameter="primetech_association.report_footer",
+    )
