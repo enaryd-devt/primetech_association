@@ -1525,10 +1525,16 @@ class AssociationSubscriptionLine(models.Model):
         # ACTUALISATION DU TABLEAU DES MEMBRES UNIQUEMENT
         # ======================================================
 
-        # The former custom client action only refreshed subscription forms;
-        # this action is also used from a meeting form.  Reloading makes the
-        # payment state, totals and member-account balance visible there.
-        return {"type": "ir.actions.client", "tag": "reload"}
+        # Refresh the active Cotisations tab without navigating away from the
+        # meeting or reloading the complete browser page.
+        return {
+            "type": "ir.actions.client",
+            "tag": "primetech_refresh_subscription_table",
+            "params": {
+                "subscription_id": self.subscription_id.id,
+                "meeting_id": meeting.id,
+            },
+        }
     
     # ==========================================================
     # CREATE

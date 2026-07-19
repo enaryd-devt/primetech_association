@@ -12,6 +12,8 @@ async function refreshSubscriptionTable(env, action) {
     const subscriptionId =
         params.subscription_id;
 
+    const meetingId = params.meeting_id;
+
     const actionService =
         env.services.action;
 
@@ -58,22 +60,26 @@ async function refreshSubscriptionTable(env, action) {
 
 
     // =========================================================
-    // FORMULAIRE COTISATION
+    // FORMULAIRE COTISATION OU RÉUNION
     // =========================================================
 
-    if (
-        root.resModel
-        !== "association.subscription"
-    ) {
+    const isSubscriptionForm = root.resModel === "association.subscription";
+    const isMeetingForm = root.resModel === "association.meeting";
+
+    if (!isSubscriptionForm && !isMeetingForm) {
         return;
     }
 
 
-    if (
+    if (isSubscriptionForm &&
         subscriptionId
         && root.resId
         && root.resId !== subscriptionId
     ) {
+        return;
+    }
+
+    if (isMeetingForm && meetingId && root.resId && root.resId !== meetingId) {
         return;
     }
 
@@ -85,7 +91,7 @@ async function refreshSubscriptionTable(env, action) {
     // PAS DE RECHARGEMENT D'ACTION
     //
     // OWL RELIT LES VALEURS DU FORMULAIRE
-    // ET MET À JOUR LE ONE2MANY
+    // ET MET À JOUR L'ONGLET COTISATIONS SANS RECHARGEMENT GLOBAL
     // =========================================================
 
     await root.load();
