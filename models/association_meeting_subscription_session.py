@@ -209,7 +209,7 @@ class AssociationMeetingSubscriptionSession(models.Model):
 
     def action_open_settlement(self):
         self.ensure_one()
-        if self.state not in ("collecting", "decision"):
+        if self.state not in ("draft", "collecting", "decision"):
             raise UserError(_("La session ne peut pas être clôturée dans son état actuel."))
         if self.pending_count:
             raise ValidationError(_("Validez ou annulez tous les encaissements en attente."))
