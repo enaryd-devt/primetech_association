@@ -261,11 +261,14 @@ class AssociationMeetingSubscriptionSession(models.Model):
             }
 
         self.state = "decision"
-        action = self.period_id.action_close()
-        action["context"] = dict(
+        # The close wizard is instantiated inside ``action_close``.  Pass the
+        # session in the environment *before* calling it, otherwise adding
+        # defaults only to the returned action cannot link that already
+        # created wizard to the meeting session.
+        action = self.period_id.with_context(
             self.env.context,
             default_meeting_subscription_session_id=self.id,
-        )
+        ).action_close()
         return action
 
     def _close_without_treasury_transfer(self):
