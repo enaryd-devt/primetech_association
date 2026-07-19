@@ -53,6 +53,22 @@
                                 <td><span class="label">Date de clôture</span><span class="value" t-field="session.closed_at" t-options="{'widget': 'datetime', 'format': 'dd/MM/yyyy HH:mm'}"/></td>
                             </tr>
                         </table>
+                        <table class="subscription-report-summary">
+                            <tr>
+                                <td><span class="label">Participants</span><span class="value" t-esc="len(session.snapshot_ids)"/></td>
+                                <td><span class="label">Partiellement réglés</span><span class="value" t-field="session.closed_partial_count"/></td>
+                                <td><span class="label">Impayés</span><span class="value" t-field="session.closed_unpaid_count"/></td>
+                                <td><span class="label">Pénalités</span><span class="value" t-field="session.closed_penalty_amount"/></td>
+                            </tr>
+                        </table>
+                        <table class="subscription-report-summary">
+                            <tr>
+                                <td><span class="label">Montant attribué</span><span class="value" t-field="session.closed_allocated_amount"/></td>
+                                <td><span class="label">Versé en trésorerie</span><span class="value" t-field="session.period_id.settled_amount"/></td>
+                                <td><span class="label">Bénéficiaires</span><span class="value" t-esc="len(session.allocation_ids)"/></td>
+                                <td><span class="label">En attente à la clôture</span><span class="value" t-field="session.closed_pending_count"/></td>
+                            </tr>
+                        </table>
 
                         <h3 class="subscription-report-section">Détail des encaissements validés</h3>
                         <table class="subscription-report-table">
@@ -64,6 +80,16 @@
                                 <tr t-if="not session.payment_ids.filtered(lambda payment: payment.state in ('collected', 'confirmed'))"><td colspan="6" class="subscription-report-empty">Aucun encaissement validé pour cette session.</td></tr>
                             </tbody>
                             <tfoot><tr><td colspan="5" style="text-align: right; font-weight: 700;">Total des encaissements validés</td><td class="amount" style="font-weight: 700;"><span t-field="session.payment_total"/></td></tr></tfoot>
+                        </table>
+
+                        <h3 class="subscription-report-section">Attributions et versement</h3>
+                        <table class="subscription-report-table">
+                            <thead><tr><th>Bénéficiaire</th><th>Mode</th><th>Date</th><th>Statut</th><th class="amount">Montant attribué</th></tr></thead>
+                            <tbody>
+                                <tr t-foreach="session.allocation_ids" t-as="allocation"><td><span t-field="allocation.beneficiary_id"/></td><td><span t-field="allocation.allocation_method"/></td><td><span t-field="allocation.allocation_date"/></td><td><span t-field="allocation.state"/></td><td class="amount"><span t-field="allocation.amount"/></td></tr>
+                                <tr t-if="not session.allocation_ids"><td colspan="5" class="subscription-report-empty">Aucune attribution pour cette session.</td></tr>
+                            </tbody>
+                            <tfoot><tr><td colspan="4" style="text-align: right; font-weight: 700;">Reliquat versé en trésorerie</td><td class="amount" style="font-weight: 700;"><span t-field="session.period_id.settled_amount"/></td></tr></tfoot>
                         </table>
 
                         <h3 class="subscription-report-section">Situation des membres à la clôture</h3>
