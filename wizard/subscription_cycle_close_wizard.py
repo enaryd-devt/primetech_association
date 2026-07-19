@@ -803,8 +803,20 @@ class AssociationSubscriptionCycleCloseWizard(
         )
 
         # ======================================================
-        # RETOUR SUR LA COTISATION
+        # RETOUR SUR LA RÉUNION
         # ======================================================
+
+        if self.meeting_subscription_session_id:
+            return {
+                "type": "ir.actions.client",
+                "tag": "primetech_refresh_subscription_table",
+                "params": {
+                    "subscription_id": subscription.id,
+                    "meeting_id": self.meeting_subscription_session_id.meeting_id.id,
+                    "origin": "meeting",
+                    "close_dialog": True,
+                },
+            }
 
         return {
             "type": "ir.actions.act_window",
