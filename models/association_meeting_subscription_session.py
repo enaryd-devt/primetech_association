@@ -283,11 +283,14 @@ class AssociationMeetingSubscriptionSession(models.Model):
                 "closed_paid_count": session.paid_count,
                 "closed_pending_count": session.pending_count,
             })
-            if session.meeting_id.subscription_period_id == session.period_id:
-                session.meeting_id.write({
-                    "subscription_id": False,
-                    "subscription_period_id": False,
-                })
+            # Keep the selected subscription and period on the meeting.  This
+            # lets the Cotisations tab keep displaying this closed session and
+            # makes its PDF report directly accessible after closure.
+            session.meeting_id.invalidate_recordset([
+                "subscription_session_id",
+                "subscription_report_available",
+                "subscription_line_ids",
+            ])
         return True
 
     def action_print_report(self):

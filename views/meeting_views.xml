@@ -913,6 +913,14 @@
                                         invisible="not subscription_id"/>
 
                                     <button
+                                        name="action_print_subscription_report"
+                                        type="object"
+                                        string="Imprimer le rapport PDF"
+                                        icon="fa-print"
+                                        class="btn-primary"
+                                        invisible="not subscription_report_available"/>
+
+                                    <button
                                         name="action_close_subscription_cycle"
                                         type="object"
                                         string="Terminer le cycle"
@@ -921,6 +929,7 @@
                                         invisible="
                                             state == 'closed'
                                             or not subscription_period_id
+                                            or subscription_report_available
                                         "
                                         confirm="Voulez-vous réellement terminer le cycle courant ?"/>
 
@@ -930,7 +939,7 @@
                                         string="Solder et verser le reliquat"
                                         icon="fa-bank"
                                         class="btn-primary"
-                                        invisible="state == 'closed' or not subscription_period_id"
+                                        invisible="state == 'closed' or not subscription_period_id or subscription_report_available"
                                         confirm="Cette action ouvre la décision de clôture du cycle. Le reliquat ne sera versé qu'après confirmation."/>
 
                                 </div>
@@ -980,6 +989,17 @@
                                                     'no_create': True,
                                                     'no_open': False
                                                 }"/>
+
+                                            <field
+                                                name="subscription_session_id"
+                                                string="Session chargée"
+                                                readonly="1"
+                                                options="{
+                                                    'no_create': True,
+                                                    'no_open': False
+                                                }"/>
+
+                                            <field name="subscription_report_available" invisible="1"/>
 
                                         </group>
 

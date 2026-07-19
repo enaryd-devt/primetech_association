@@ -591,11 +591,48 @@ class AssociationMeeting(models.Model):
         tracking=True,
     )
 
+    subscription_session_id = fields.Many2one(
+        comodel_name="association.meeting.subscription.session",
+        compute="_compute_subscription_session",
+        string="Session de cotisation chargée",
+        readonly=True,
+    )
+
+    subscription_report_available = fields.Boolean(
+        compute="_compute_subscription_session",
+        string="Rapport de cotisation disponible",
+    )
+
     subscription_line_ids = fields.One2many(
         comodel_name="association.subscription.line",
         compute="_compute_subscription_line_ids",
         string="Cotisations des membres",
     )
+
+    @api.depends(
+        "subscription_id",
+        "subscription_period_id",
+        "subscription_session_ids.subscription_id",
+        "subscription_session_ids.period_id",
+        "subscription_session_ids.state",
+    )
+    def _compute_subscription_session(self):
+        """Expose the session that supplies the data shown in the tab.
+
+        The meeting may contain several subscription sessions.  The
+        ``Cotisations`` tab is intentionally scoped to the subscription and
+        cycle selected by the user, rather than silently switching to the
+        subscription's latest global cycle.
+        """
+        for meeting in self:
+            session = meeting.subscription_session_ids.filtered(
+                lambda item: item.subscription_id == meeting.subscription_id
+                and item.period_id == meeting.subscription_period_id
+            )[:1]
+            meeting.subscription_session_id = session
+            meeting.subscription_report_available = bool(
+                session and session.state == "closed"
+            )
 
     # ==========================================================
     # STATISTIQUES DE LA CAGNOTTE
@@ -885,6 +922,16 @@ class AssociationMeeting(models.Model):
                     )
                 )
 
+            # A session selected in the meeting is the source of truth for
+            # this tab.  It may differ from the subscription's current cycle
+            # when the meeting is displaying an already closed session.
+            session = meeting._get_subscription_session_for_subscription(
+                meeting.subscription_id
+            )
+            if session:
+                meeting.subscription_period_id = session.period_id.id
+                return {"type": "ir.actions.client", "tag": "reload"}
+
             # ==================================================
             # RECHERCHE DU CYCLE RÉELLEMENT EN COURS
             # ==================================================
@@ -927,6 +974,11 @@ class AssociationMeeting(models.Model):
             # ==================================================
 
             meeting.subscription_period_id = period.id
+            self.env["association.meeting.subscription.session"].create({
+                "meeting_id": meeting.id,
+                "subscription_id": meeting.subscription_id.id,
+                "period_id": period.id,
+            })
 
             # ==================================================
             # INVALIDER LES DONNÉES DE LA RÉUNION
@@ -1493,16 +1545,33 @@ class AssociationMeeting(models.Model):
             if not meeting.subscription_id:
                 continue
 
-            meeting.subscription_period_id = (
-                meeting.subscription_id.current_period_id
+            session = meeting._get_subscription_session_for_subscription(
+                meeting.subscription_id
             )
-    
-    def write(self, vals):
+            meeting.subscription_period_id = (
+                session.period_id if session else meeting.subscription_id.current_period_id
+            )
 
-        result = super().write(vals)
+    def _get_subscription_session_for_subscription(self, subscription):
+        """Return the session cycle that must be loaded for a subscription."""
+        self.ensure_one()
+        sessions = self.subscription_session_ids.filtered(
+            lambda item: item.subscription_id == subscription and item.period_id
+        )
+        active_sessions = sessions.filtered(
+            lambda item: item.state in ("draft", "collecting", "decision")
+        )
+        return (active_sessions or sessions).sorted(
+            key=lambda item: (item.sequence, item.id), reverse=True
+        )[:1]
 
-        return result
-
+    def action_print_subscription_report(self):
+        """Print the report of the session currently loaded in this tab."""
+        self.ensure_one()
+        session = self.subscription_session_id
+        if not session or session.state != "closed":
+            raise UserError(_("Le rapport est disponible après la clôture du cycle."))
+        return session.action_print_report()
 
     # ==========================================================
     # STATISTIQUES DES ENCAISSEMENTS
@@ -3359,6 +3428,35 @@ class AssociationMeeting(models.Model):
 
     def write(self, vals):
 
+        vals = dict(vals)
+        if vals.get("subscription_id"):
+            subscription = self.env["association.subscription"].browse(
+                vals["subscription_id"]
+            )
+            sessions_by_meeting = {
+                meeting.id: meeting._get_subscription_session_for_subscription(
+                    subscription
+                )
+                for meeting in self
+            }
+            periods = {
+                (sessions_by_meeting[meeting.id].period_id.id
+                 if sessions_by_meeting[meeting.id]
+                 else subscription.current_period_id.id)
+                for meeting in self
+                if (sessions_by_meeting[meeting.id] or subscription.current_period_id)
+            }
+            # A multi-record write cannot safely assign several session cycles
+            # in one call.  Applying it record by record preserves the cycle
+            # selected in each meeting's Sessions de cotisation tab.
+            if len(periods) > 1:
+                return all(
+                    meeting.write(vals)
+                    for meeting in self
+                )
+            if periods:
+                vals["subscription_period_id"] = periods.pop()
+
         protected_fields = {
             "meeting_date",
             "start_time",
@@ -3397,7 +3495,10 @@ class AssociationMeeting(models.Model):
         if vals.get("subscription_id"):
             Session = self.env["association.meeting.subscription.session"]
             for meeting in self:
-                period = meeting.subscription_id.current_period_id
+                session = meeting._get_subscription_session_for_subscription(
+                    meeting.subscription_id
+                )
+                period = session.period_id if session else meeting.subscription_period_id
                 if not period:
                     continue
                 session = Session.search([
