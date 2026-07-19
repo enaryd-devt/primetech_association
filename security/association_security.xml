@@ -18,7 +18,7 @@
     <!-- ========================================================== -->
 
     <record id="group_association_user" model="res.groups">
-        <field name="name">Association User</field>
+        <field name="name">Utilisateur Association</field>
         <field name="category_id" ref="module_category_association"/>
     </record>
 
@@ -27,7 +27,7 @@
     <!-- ========================================================== -->
 
     <record id="group_association_manager" model="res.groups">
-        <field name="name">Association Manager</field>
+        <field name="name">Responsable Association</field>
         <field name="category_id" ref="module_category_association"/>
         <field name="implied_ids"
                eval="[(4, ref('group_association_user'))]"/>
@@ -38,7 +38,7 @@
     <!-- ========================================================== -->
 
     <record id="group_association_admin" model="res.groups">
-        <field name="name">Association Administrator</field>
+        <field name="name">Administrateur Association</field>
         <field name="category_id" ref="module_category_association"/>
         <field name="implied_ids"
                eval="[(4, ref('group_association_manager'))]"/>
@@ -48,22 +48,22 @@
          operational tabs shown in a meeting; managers and administrators
          retain access to every tab. -->
     <record id="group_association_meeting_president" model="res.groups">
-        <field name="name">Meeting President</field>
+        <field name="name">Président de réunion</field>
         <field name="category_id" ref="module_category_association"/>
         <field name="implied_ids" eval="[(4, ref('group_association_user'))]"/>
     </record>
     <record id="group_association_meeting_secretary" model="res.groups">
-        <field name="name">Meeting Secretary</field>
+        <field name="name">Secrétaire de réunion</field>
         <field name="category_id" ref="module_category_association"/>
         <field name="implied_ids" eval="[(4, ref('group_association_user'))]"/>
     </record>
     <record id="group_association_meeting_treasurer" model="res.groups">
-        <field name="name">Meeting Treasurer</field>
+        <field name="name">Trésorier de réunion</field>
         <field name="category_id" ref="module_category_association"/>
         <field name="implied_ids" eval="[(4, ref('group_association_user'))]"/>
     </record>
     <record id="group_association_meeting_censor" model="res.groups">
-        <field name="name">Meeting Censor</field>
+        <field name="name">Censeur de réunion</field>
         <field name="category_id" ref="module_category_association"/>
         <field name="implied_ids" eval="[(4, ref('group_association_user'))]"/>
     </record>
