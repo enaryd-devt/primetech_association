@@ -339,6 +339,17 @@ class AssociationMeetingSubscriptionSession(models.Model):
             )
             if sessions_settled:
                 session.meeting_id.write({"pot_settlement_state": "settled"})
+            # Member-account payments made during a meeting remain temporary
+            # until the session is finalised.  Debit them once the allocations
+            # and treasury settlement have been completed.
+            deferred_payments = session.payment_ids.filtered(
+                lambda payment: payment.state == "confirmed"
+                and payment.payment_source == "member_account"
+                and payment.defer_member_account_debit
+            )
+            for payment in deferred_payments:
+                payment._debit_member_account()
+                payment.write({"defer_member_account_debit": False})
         return True
 
     def _create_cycle_snapshot(self):

@@ -1151,6 +1151,8 @@ class AssociationSubscriptionLine(models.Model):
 
                 "subscription_period_id": period.id,
 
+                "defer_member_account_debit": bool(session),
+
                 "has_allocations":
                     True,
 

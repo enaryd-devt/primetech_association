@@ -259,6 +259,12 @@ class AssociationPayment(models.Model):
         tracking=True,
     )
 
+    defer_member_account_debit = fields.Boolean(
+        string="Débit compte membre à la finalisation",
+        default=False, readonly=True, copy=False,
+        help="Le débit est conservé temporairement dans la session de réunion et exécuté à sa finalisation.",
+    )
+
     member_account_balance = fields.Monetary(
         string="Solde du compte membre",
         currency_field="currency_id",
@@ -1932,8 +1938,8 @@ class AssociationPayment(models.Model):
             # ======================================================
 
             if (
-                record.payment_source
-                == "member_account"
+                record.payment_source == "member_account"
+                and not record.defer_member_account_debit
             ):
 
                 record._debit_member_account()
