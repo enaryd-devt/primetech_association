@@ -403,6 +403,12 @@ class AssociationSubscriptionCycleCloseWizard(
             self.period_id.settled_amount or 0.0
         ) + amount
 
+        if self.meeting_subscription_session_id:
+            self.meeting_subscription_session_id.meeting_id.write({
+                "pot_settlement_fund_id": self.fund_id.id,
+                "pot_settlement_transaction_id": transaction.id,
+            })
+
         return transaction
     
     
@@ -724,6 +730,19 @@ class AssociationSubscriptionCycleCloseWizard(
 
             self._create_treasury_transaction(
                 amount_to_transfer
+            )
+
+        # A cycle can only be locked once every collected amount has either
+        # been attributed or transferred to the financial account chosen in
+        # this assistant.  This protects against closing a session with a
+        # residual temporary cash balance.
+        period.invalidate_recordset(["available_amount", "settled_amount"])
+        if (period.available_amount or 0.0) > 0.01:
+            raise ValidationError(
+                _(
+                    "Le reliquat de la caisse temporaire doit être attribué "
+                    "ou versé sur le compte financier sélectionné avant la clôture."
+                )
             )
 
         # ======================================================
