@@ -879,12 +879,21 @@ class AssociationSubscriptionLine(models.Model):
     def action_pay_from_member_account(self):
         self.ensure_one()
 
+        if not self.env.context.get("skip_member_account_confirmation"):
+            wizard = self.env[
+                "association.member.account.subscription.payment.wizard"
+            ].create({"subscription_line_id": self.id})
+            return {
+                "type": "ir.actions.act_window",
+                "name": _("Utiliser le compte membre"),
+                "res_model": wizard._name,
+                "res_id": wizard.id,
+                "view_mode": "form",
+                "target": "new",
+            }
+
         MemberAccount = self.env[
             "association.member.account"
-        ]
-
-        AccountTransaction = self.env[
-            "association.member.account.transaction"
         ]
 
         Payment = self.env[
@@ -1067,24 +1076,17 @@ class AssociationSubscriptionLine(models.Model):
             member_account.balance or 0.0
         )
 
-        if available_balance < amount_to_pay:
+        if available_balance <= 0:
             raise ValidationError(
                 _(
-                    "Solde du compte membre insuffisant.\n\n"
-                    "Disponible : %(available).2f %(currency)s\n"
-                    "Montant requis : %(required).2f %(currency)s"
+                    "Le compte membre ne dispose d'aucun solde disponible."
                 )
-                % {
-                    "available":
-                        available_balance,
-
-                    "required":
-                        amount_to_pay,
-
-                    "currency":
-                        self.currency_id.name or "",
-                }
             )
+
+        # A member-account payment can settle only the available amount.  The
+        # remaining balance stays due and the line becomes ``partial`` after
+        # confirmation, exactly like an external partial payment.
+        amount_to_pay = min(amount_to_pay, available_balance)
 
         # ======================================================
         # DATE DU PAIEMENT
@@ -1103,6 +1105,18 @@ class AssociationSubscriptionLine(models.Model):
             and payment_date > period.period_end_date
         ):
             payment_date = period.period_end_date
+
+        # When this action is triggered from a meeting, keep the payment in
+        # the exact session/cycle displayed by that meeting.  Without these
+        # links the payment is confirmed but is ignored by the cycle and
+        # session statistics, so the table keeps showing an unpaid member.
+        meeting = self.env["association.meeting"].browse(
+            self.env.context.get("default_meeting_id")
+        ).exists()
+        session = meeting.subscription_session_ids.filtered(
+            lambda item: item.subscription_id == self.subscription_id
+            and item.period_id == period
+        )[:1] if meeting else self.env["association.meeting.subscription.session"]
 
         # ======================================================
         # CRÉATION DU PAIEMENT
@@ -1132,6 +1146,10 @@ class AssociationSubscriptionLine(models.Model):
                 "meeting_id": self.env.context.get(
                     "default_meeting_id"
                 ),
+
+                "meeting_subscription_session_id": session.id,
+
+                "subscription_period_id": period.id,
 
                 "has_allocations":
                     True,
@@ -1235,115 +1253,19 @@ class AssociationSubscriptionLine(models.Model):
             )
 
         # ======================================================
-        # CONFIRMATION DIRECTE DU PAIEMENT
+        # VALIDATION MÉTIER CENTRALISÉE
         #
-        # NE PAS APPELER action_confirm()
+        # ``association.payment`` is the single source of truth for payment
+        # confirmation: it debits the member account once, recalculates the
+        # subscription line and invalidates the meeting statistics.
         # ======================================================
-
-        payment.write(
-            {
-                "state":
-                    "confirmed",
-            }
-        )
-
-        self.env.flush_all()
-
-        # ======================================================
-        # DÉBIT DU COMPTE MEMBRE
-        # ======================================================
-
-        transaction_values = {
-            "account_id":
-                member_account.id,
-
-            "transaction_type":
-                "debit",
-
-            "amount":
-                amount_to_pay,
-
-            "transaction_date":
-                fields.Datetime.now(),
-
-            "payment_id":
-                payment.id,
-
-            "description":
-                _(
-                    "Paiement du cycle %(period)s - "
-                    "%(subscription)s"
-                )
-                % {
-                    "period":
-                        period.display_name,
-
-                    "subscription":
-                        self.subscription_id.display_name,
-                },
-        }
-
-        # ======================================================
-        # CHAMPS OPTIONNELS
-        # ======================================================
-
-        if (
-            "origin_type"
-            in AccountTransaction._fields
-        ):
-            transaction_values[
-                "origin_type"
-            ] = "subscription_payment"
-
-        if (
-            "origin_model"
-            in AccountTransaction._fields
-        ):
-            transaction_values[
-                "origin_model"
-            ] = payment._name
-
-        if (
-            "origin_res_id"
-            in AccountTransaction._fields
-        ):
-            transaction_values[
-                "origin_res_id"
-            ] = payment.id
-
-        if (
-            "origin_reference"
-            in AccountTransaction._fields
-        ):
-            transaction_values[
-                "origin_reference"
-            ] = payment.name
-
-        transaction = AccountTransaction.create(
-            transaction_values
-        )
-
-        # ======================================================
-        # VALIDATION DU MOUVEMENT
-        # ======================================================
-
-        if hasattr(
-            transaction,
-            "action_validate",
-        ):
-            transaction.action_validate()
-
-        elif hasattr(
-            transaction,
-            "action_post",
-        ):
-            transaction.action_post()
-
-        elif hasattr(
-            transaction,
-            "action_confirm",
-        ):
-            transaction.action_confirm()
+        payment.action_collect()
+        payment.action_confirm()
+        payment.invalidate_recordset(["state"])
+        if payment.state != "confirmed":
+            raise ValidationError(
+                _("Le paiement depuis le compte membre n'a pas pu être validé.")
+            )
 
         # ======================================================
         # FLUSH
@@ -1463,6 +1385,21 @@ class AssociationSubscriptionLine(models.Model):
             ]
         )
 
+        if meeting:
+            meeting_fields = [
+                "subscription_line_ids",
+                "collection_count",
+                "collection_paid_count",
+                "collection_pending_count",
+                "collection_total",
+                "pot_collected_amount",
+                "pot_allocated_amount",
+                "pot_available_amount",
+                "pot_beneficiary_count",
+            ]
+            meeting.invalidate_recordset(meeting_fields)
+            meeting.modified(meeting_fields)
+
         self.env.flush_all()
 
         # ======================================================
@@ -1494,18 +1431,18 @@ class AssociationSubscriptionLine(models.Model):
         # ACTUALISATION DU TABLEAU DES MEMBRES UNIQUEMENT
         # ======================================================
 
+        # Refresh the active Cotisations tab without navigating away from the
+        # meeting or reloading the complete browser page.
         return {
             "type": "ir.actions.client",
             "tag": "primetech_refresh_subscription_table",
             "params": {
-                "subscription_id":
-                    self.subscription_id.id,
-
-                "subscription_line_id":
-                    self.id,
-
-                "field_name":
-                    "line_ids",
+                "subscription_id": self.subscription_id.id,
+                "subscription_line_id": self.id,
+                "field_name": "subscription_line_ids",
+                "origin": "meeting",
+                "meeting_id": meeting.id,
+                "close_dialog": False,
             },
         }
     
