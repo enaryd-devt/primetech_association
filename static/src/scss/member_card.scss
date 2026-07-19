@@ -1,0 +1,26 @@
+// Stable member avatar zone in the association card form.
+.association_card_avatar_zone {
+    flex: 0 0 128px !important;
+    width: 128px !important;
+    height: 128px !important;
+    min-width: 128px !important;
+    min-height: 128px !important;
+    max-width: 128px !important;
+    max-height: 128px !important;
+    overflow: hidden !important;
+
+    .o_field_widget,
+    .o_field_image,
+    .o_field_image img,
+    img {
+        display: block !important;
+        width: 128px !important;
+        height: 128px !important;
+        min-width: 128px !important;
+        min-height: 128px !important;
+        max-width: 128px !important;
+        max-height: 128px !important;
+        object-fit: cover !important;
+        object-position: center !important;
+    }
+}
