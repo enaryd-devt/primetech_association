@@ -51,6 +51,13 @@ class AssociationMeetingSubscriptionSession(models.Model):
         "association.payment", "meeting_subscription_session_id",
         string="Paiements", readonly=True,
     )
+    payment_count = fields.Integer(
+        compute="_compute_payment_summary", string="Encaissements validés",
+    )
+    payment_total = fields.Monetary(
+        compute="_compute_payment_summary", currency_field="currency_id",
+        string="Total des encaissements",
+    )
     allocation_ids = fields.One2many(
         "association.subscription.allocation", "meeting_subscription_session_id",
         string="Bénéficiaires", readonly=True,
@@ -153,6 +160,22 @@ class AssociationMeetingSubscriptionSession(models.Model):
             session.expected_amount = sum(
                 session.collection_ids.mapped("initial_due_amount")
             )
+
+    @api.depends("payment_ids.amount", "payment_ids.state")
+    def _compute_payment_summary(self):
+        """Expose the definitive receipts once a session has been closed.
+
+        Payments are linked to the session when they are created.  Keeping the
+        summary on the session makes the receipts immediately available in the
+        closed-session tab without relying on the still-editable collection
+        lines.
+        """
+        for session in self:
+            confirmed_payments = session.payment_ids.filtered(
+                lambda payment: payment.state in ("collected", "confirmed")
+            )
+            session.payment_count = len(confirmed_payments)
+            session.payment_total = sum(confirmed_payments.mapped("amount"))
 
     def action_start_collection(self):
         for session in self:
