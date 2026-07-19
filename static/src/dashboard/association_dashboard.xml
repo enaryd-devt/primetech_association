@@ -8,7 +8,7 @@
           <div><h1>Bonjour, <t t-esc="state.data.user_name || 'Administrateur'"/> <span>👋</span></h1><p>Tableau de bord de l'association</p></div>
           <div class="dash_head_actions">
             <span class="dash_filter"><i class="fa fa-calendar-o"/> <t t-esc="todayLabel()"/></span>
-            <span class="dash_filter"><i class="fa fa-link"/> Toutes les sections <i class="fa fa-angle-down"/></span>
+            <label class="dash_select"><i class="fa fa-filter"/><select t-on-change="onPeriodChange"><option value="all">Toute la période</option><option value="month">Ce mois</option><option value="quarter">3 derniers mois</option><option value="year">Cette année</option></select><i class="fa fa-angle-down"/></label>
             <div class="dash_org"><span class="dash_logo"><i class="fa fa-users"/></span><span><strong t-esc="state.data.company.name"/><small>Vue générale</small></span></div>
             <button class="dash_refresh" title="Actualiser" t-on-click="loadDashboard"><i class="fa fa-refresh"/></button>
           </div>
@@ -20,13 +20,24 @@
           </t>
         </section>
 
+        <section class="quick_actions" aria-label="Actions rapides">
+          <div class="quick_actions_intro"><span class="quick_actions_icon"><i class="fa fa-bolt"/></span><div><strong>Actions rapides</strong><small>Accédez aux opérations les plus fréquentes.</small></div></div>
+          <div class="quick_actions_list">
+            <button class="quick_action primary" t-on-click="createMember"><i class="fa fa-user-plus"/><span>Nouveau membre</span></button>
+            <button class="quick_action" t-on-click="openMeetings"><i class="fa fa-calendar-plus-o"/><span>Réunions</span></button>
+            <button class="quick_action" t-on-click="openPayments"><i class="fa fa-money"/><span>Encaissements</span></button>
+            <button class="quick_action" t-on-click="openSubscriptions"><i class="fa fa-refresh"/><span>Cotisations</span></button>
+            <button class="quick_action" t-on-click="openTreasury"><i class="fa fa-bank"/><span>Trésorerie</span></button>
+          </div>
+        </section>
+
         <section class="dash_grid top_grid">
           <article class="dash_panel members_panel"><div class="panel_title"><h2>Statut des membres</h2><span>Données actuelles</span></div>
             <div class="donut_wrap"><div class="donut members_donut" t-att-style="'background:conic-gradient(var(--blue) 0 ' + memberPercent + '%, var(--green) ' + memberPercent + '% 100%)'"><div><strong t-esc="state.data.members.total || 0"/><small>Total</small></div></div>
               <ul class="legend"><li><i class="blue"/> Membres actifs <b><t t-esc="memberPercent"/>% (<t t-esc="state.data.members.active || 0"/>)</b></li><li><i class="green"/> Autres statuts <b><t t-esc="100 - memberPercent"/>% (<t t-esc="(state.data.members.total || 0) - (state.data.members.active || 0)"/>)</b></li></ul>
             </div>
           </article>
-          <article class="dash_panel chart_panel"><div class="panel_title"><h2>Évolution des cotisations</h2><span>6 derniers mois <i class="fa fa-angle-down"/></span></div><div class="chart_key"><i class="blue"/> Montant collecté <i class="green"/> Nombre de cotisations</div>
+          <article class="dash_panel chart_panel"><div class="panel_title"><h2>Évolution des cotisations</h2><label class="panel_select"><select t-on-change="onMonthsChange"><option value="3">3 derniers mois</option><option value="6" selected="selected">6 derniers mois</option><option value="12">12 derniers mois</option></select><i class="fa fa-angle-down"/></label></div><div class="chart_key"><i class="blue"/> Montant collecté <i class="green"/> Nombre de cotisations</div>
             <div class="bar_chart"><div class="grid_lines"/><t t-foreach="chartBars" t-as="bar" t-key="bar.month"><div class="bar_col" t-att-title="formatAmount(bar.amount) + ' ' + state.data.currency.symbol + ' · ' + bar.count + ' paiement(s)'"><div class="bar" t-att-style="'height:' + bar.height + '%'"/><span t-esc="bar.month"/></div></t></div>
           </article>
           <article class="dash_panel"><div class="panel_title"><h2>Prochains événements</h2><button t-on-click="openMeetings">Voir tout</button></div><div class="event_list"><t t-if="state.data.upcoming_meetings.length"><t t-foreach="state.data.upcoming_meetings" t-as="meeting" t-key="meeting.id"><div class="event_row" t-on-click="() => this.openMeeting(meeting.id)"><span class="event_icon"><i class="fa fa-calendar"/></span><div><strong t-esc="meeting.title"/><small><t t-esc="meeting.date"/> <i class="fa fa-circle"/> <t t-esc="meeting.time || 'À confirmer'"/></small></div><em>À venir</em></div></t></t><t t-else=""><div class="empty">Aucun événement programmé</div></t></div></article>

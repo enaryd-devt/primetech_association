@@ -45,6 +45,7 @@ export class AssociationDashboard extends Component {
                 recent_members: [],
                 currency: {},
             },
+            filters: {period: "all", months: 6},
 
         });
 
@@ -72,7 +73,7 @@ export class AssociationDashboard extends Component {
             const data = await this.orm.call(
                 "association.dashboard",
                 "get_dashboard_data",
-                [],
+                [this.state.filters],
             );
 
             this.state.data = data;
@@ -83,6 +84,16 @@ export class AssociationDashboard extends Component {
 
         }
 
+    }
+
+    onPeriodChange(ev) {
+        this.state.filters.period = ev.target.value;
+        return this.loadDashboard();
+    }
+
+    onMonthsChange(ev) {
+        this.state.filters.months = Number(ev.target.value);
+        return this.loadDashboard();
     }
 
 
@@ -164,6 +175,16 @@ export class AssociationDashboard extends Component {
             "primetech_association.action_association_member"
         );
 
+    }
+
+    createMember() {
+        return this.action.doAction({
+            type: "ir.actions.act_window",
+            name: "Nouveau membre",
+            res_model: "association.member",
+            views: [[false, "form"]],
+            target: "current",
+        });
     }
 
 
