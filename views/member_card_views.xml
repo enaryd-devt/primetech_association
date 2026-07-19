@@ -659,6 +659,11 @@
                             style="
                                 width: 128px;
                                 height: 128px;
+                                min-width: 128px;
+                                min-height: 128px;
+                                max-width: 128px;
+                                max-height: 128px;
+                                overflow: hidden;
                             ">
 
                             <field
@@ -671,9 +676,12 @@
                                 style="
                                     width: 128px;
                                     height: 128px;
+                                    min-width: 128px;
+                                    min-height: 128px;
                                     max-width: 128px;
                                     max-height: 128px;
                                     object-fit: cover;
+                                    object-position: center;
                                 "/>
 
                         </div>
