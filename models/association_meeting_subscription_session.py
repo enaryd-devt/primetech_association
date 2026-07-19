@@ -251,7 +251,13 @@ class AssociationMeetingSubscriptionSession(models.Model):
             self._close_without_treasury_transfer()
             return {
                 "type": "ir.actions.client",
-                "tag": "reload",
+                "tag": "primetech_refresh_subscription_table",
+                "params": {
+                    "subscription_id": self.subscription_id.id,
+                    "meeting_id": self.meeting_id.id,
+                    "origin": "meeting",
+                    "close_dialog": False,
+                },
             }
 
         self.state = "decision"
