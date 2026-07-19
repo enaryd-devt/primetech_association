@@ -1104,6 +1104,18 @@ class AssociationSubscriptionLine(models.Model):
         ):
             payment_date = period.period_end_date
 
+        # When this action is triggered from a meeting, keep the payment in
+        # the exact session/cycle displayed by that meeting.  Without these
+        # links the payment is confirmed but is ignored by the cycle and
+        # session statistics, so the table keeps showing an unpaid member.
+        meeting = self.env["association.meeting"].browse(
+            self.env.context.get("default_meeting_id")
+        ).exists()
+        session = meeting.subscription_session_ids.filtered(
+            lambda item: item.subscription_id == self.subscription_id
+            and item.period_id == period
+        )[:1] if meeting else self.env["association.meeting.subscription.session"]
+
         # ======================================================
         # CRÉATION DU PAIEMENT
         #
@@ -1132,6 +1144,10 @@ class AssociationSubscriptionLine(models.Model):
                 "meeting_id": self.env.context.get(
                     "default_meeting_id"
                 ),
+
+                "meeting_subscription_session_id": session.id,
+
+                "subscription_period_id": period.id,
 
                 "has_allocations":
                     True,
@@ -1463,6 +1479,21 @@ class AssociationSubscriptionLine(models.Model):
             ]
         )
 
+        if meeting:
+            meeting_fields = [
+                "subscription_line_ids",
+                "collection_count",
+                "collection_paid_count",
+                "collection_pending_count",
+                "collection_total",
+                "pot_collected_amount",
+                "pot_allocated_amount",
+                "pot_available_amount",
+                "pot_beneficiary_count",
+            ]
+            meeting.invalidate_recordset(meeting_fields)
+            meeting.modified(meeting_fields)
+
         self.env.flush_all()
 
         # ======================================================
@@ -1494,20 +1525,10 @@ class AssociationSubscriptionLine(models.Model):
         # ACTUALISATION DU TABLEAU DES MEMBRES UNIQUEMENT
         # ======================================================
 
-        return {
-            "type": "ir.actions.client",
-            "tag": "primetech_refresh_subscription_table",
-            "params": {
-                "subscription_id":
-                    self.subscription_id.id,
-
-                "subscription_line_id":
-                    self.id,
-
-                "field_name":
-                    "line_ids",
-            },
-        }
+        # The former custom client action only refreshed subscription forms;
+        # this action is also used from a meeting form.  Reloading makes the
+        # payment state, totals and member-account balance visible there.
+        return {"type": "ir.actions.client", "tag": "reload"}
     
     # ==========================================================
     # CREATE
