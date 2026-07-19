@@ -780,7 +780,8 @@
 
                         <page
                             string="Convocation"
-                            name="convocation">
+                            name="convocation"
+                            groups="primetech_association.group_association_meeting_president,primetech_association.group_association_meeting_secretary,primetech_association.group_association_manager,primetech_association.group_association_admin">
 
                             <group>
 
@@ -846,7 +847,8 @@
 
                         <page
                             string="Ordre du jour"
-                            name="agenda">
+                            name="agenda"
+                            groups="primetech_association.group_association_meeting_president,primetech_association.group_association_meeting_secretary,primetech_association.group_association_manager,primetech_association.group_association_admin">
 
                             <field
                                 name="agenda"
@@ -862,7 +864,8 @@
 
                         <page
                             string="Cotisations"
-                            name="meeting_subscriptions">
+                            name="meeting_subscriptions"
+                            groups="primetech_association.group_association_meeting_treasurer,primetech_association.group_association_manager,primetech_association.group_association_admin">
 
                             <!-- CHAMP TECHNIQUE DE LA RÉUNION -->
                             <field
@@ -1672,7 +1675,8 @@
 
                         <page
                             string="Liste d'appel"
-                            name="attendance">
+                            name="attendance"
+                            groups="primetech_association.group_association_meeting_secretary,primetech_association.group_association_meeting_censor,primetech_association.group_association_manager,primetech_association.group_association_admin">
 
                             <!-- ===================================================== -->
                             <!-- INFORMATION                                           -->
@@ -1871,7 +1875,8 @@
 
                         <page
                             string="Sanctions / Incidents"
-                            name="penalties">
+                            name="penalties"
+                            groups="primetech_association.group_association_meeting_president,primetech_association.group_association_meeting_censor,primetech_association.group_association_manager,primetech_association.group_association_admin">
 
                                     <!-- ========================================= -->
                             <!-- INFORMATION                              -->
@@ -2203,7 +2208,8 @@
 
                         <page
                             string="Résolutions"
-                            name="resolutions">
+                            name="resolutions"
+                            groups="primetech_association.group_association_meeting_president,primetech_association.group_association_meeting_secretary,primetech_association.group_association_manager,primetech_association.group_association_admin">
 
                             <field
                                 name="resolution_ids"
@@ -2490,7 +2496,8 @@
 
                         <page
                             string="Procès-verbal"
-                            name="minutes">
+                            name="minutes"
+                            groups="primetech_association.group_association_meeting_secretary,primetech_association.group_association_manager,primetech_association.group_association_admin">
 
                             <!-- ========================================= -->
                             <!-- PV NON PRÉPARÉ                            -->
@@ -2828,7 +2835,8 @@
 
                         <page
                             string="Notes internes"
-                            name="notes">
+                            name="notes"
+                            groups="primetech_association.group_association_meeting_president,primetech_association.group_association_meeting_secretary,primetech_association.group_association_manager,primetech_association.group_association_admin">
 
                             <field
                                 name="note"

@@ -112,7 +112,7 @@
         <field name="inherit_id" ref="primetech_association.view_association_meeting_form"/>
         <field name="arch" type="xml">
             <xpath expr="//notebook" position="inside">
-                <page string="Sessions de cotisation" name="subscription_sessions">
+                <page string="Sessions de cotisation" name="subscription_sessions" groups="base.group_no_one">
                     <div class="alert alert-info" role="alert">
                         Une session correspond à une cotisation et à un cycle. Le même cycle ne peut être ajouté qu'une seule fois dans cette réunion.
                     </div>
