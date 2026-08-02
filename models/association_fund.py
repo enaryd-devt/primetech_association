@@ -81,7 +81,6 @@ class AssociationFund(models.Model):
             ("bank", "Compte bancaire"),
             ("cash", "Compte caisse"),
             ("mobile_money", "Mobile Money"),
-            ("cca", "CCA"),
             ("fund", "Compte fonds"),
             ("insurance", "Compte assurance"),
             ("other", "Autre compte financier"),
