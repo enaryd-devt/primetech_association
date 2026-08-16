@@ -850,9 +850,16 @@
                             name="agenda"
                             groups="primetech_association.group_association_meeting_president,primetech_association.group_association_meeting_secretary,primetech_association.group_association_manager,primetech_association.group_association_admin">
 
+                            <field name="can_edit_agenda" invisible="1"/>
+
+                            <div class="alert alert-info py-2 px-3 mb-3" role="alert">
+                                <i class="fa fa-info-circle me-1"/>
+                                Un modèle d'ordre du jour est prérempli. Le secrétaire de séance peut l'adapter avant la clôture.
+                            </div>
+
                             <field
                                 name="agenda"
-                                readonly="state == 'closed'"
+                                readonly="state == 'closed' or not can_edit_agenda"
                                 placeholder="Saisissez les différents points inscrits à l'ordre du jour..."
                             />
 
@@ -1690,8 +1697,9 @@
 
                                 <strong>Pointage :</strong>
 
-                                générez automatiquement les membres de la cotisation
-                                sélectionnée ou ajoutez manuellement un membre.
+                                la liste des membres se charge automatiquement avec
+                                le cycle de cotisation sélectionné. Vous pouvez aussi
+                                ajouter manuellement un membre.
 
                                 Cochez ensuite Présent, Absent ou Retard.
 
@@ -1710,7 +1718,7 @@
 
                                 <button
                                     name="action_generate_attendances"
-                                    string="Générer les membres de la cotisation"
+                                    string="Actualiser les membres de la cotisation"
                                     type="object"
                                     class="btn-primary"
                                     icon="fa-users"
