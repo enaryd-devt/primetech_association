@@ -162,6 +162,12 @@ class AssociationMeeting(models.Model):
         string="Responsables disponibles",
     )
 
+    official_committee_line_ids = fields.Many2many(
+        comodel_name="association.committee.line",
+        string="Composition du bureau mandaté",
+        compute="_compute_official_committee_line_ids",
+    )
+
     chairperson_id = fields.Many2one(
         comodel_name="association.member",
         string="Président de séance",
@@ -191,8 +197,26 @@ class AssociationMeeting(models.Model):
                 )
             else:
                 meeting.eligible_officer_ids = (
-                    meeting.special_officer_ids.mapped("member_id")
+                    self.env["association.member"].search([
+                        ("company_id", "=", meeting.company_id.id),
+                        ("state", "=", "active"),
+                        ("active", "=", True),
+                    ])
                 )
+
+    @api.depends(
+        "committee_mode",
+        "committee_id",
+        "committee_id.member_line_ids",
+        "committee_id.member_line_ids.function_id",
+    )
+    def _compute_official_committee_line_ids(self):
+        for meeting in self:
+            meeting.official_committee_line_ids = (
+                meeting.committee_id.member_line_ids
+                if meeting.committee_mode == "official"
+                else False
+            )
 
     @api.depends("company_id", "meeting_date")
     def _compute_available_committee_ids(self):
@@ -320,14 +344,10 @@ class AssociationMeeting(models.Model):
                         "exécutif sélectionné."
                     ))
             elif meeting.committee_mode == "special":
-                roles = set(meeting.special_officer_ids.mapped("role"))
-                if meeting.state != "draft" and not {
-                    "chairperson", "secretary"
-                }.issubset(roles):
-                    raise ValidationError(_(
-                        "Le bureau spécial doit comporter un président "
-                        "et un secrétaire de séance."
-                    ))
+                # In special mode the chairperson and secretary may be any
+                # active member of the company; adding duplicate officer
+                # rows is therefore optional.
+                pass
             if meeting.state != "draft":
                 if not meeting.chairperson_id or not meeting.secretary_id:
                     raise ValidationError(_(

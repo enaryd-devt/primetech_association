@@ -725,17 +725,18 @@
 
                                         <field name="eligible_officer_ids" invisible="1"/>
 
+
                                         <field
                                             name="chairperson_id"
                                             domain="[('id', 'in', eligible_officer_ids)]"
-                                            readonly="state == 'closed'"
+                                            readonly="state == 'closed' or committee_mode == 'official'"
                                             options="{'no_create': true}"
                                         />
 
                                         <field
                                             name="secretary_id"
                                             domain="[('id', 'in', eligible_officer_ids)]"
-                                            readonly="state == 'closed'"
+                                            readonly="state == 'closed' or committee_mode == 'official'"
                                             options="{'no_create': true}"
                                         />
 
@@ -746,6 +747,23 @@
                                         />
 
                                     </group>
+
+                                    <div invisible="committee_mode != 'official' or not committee_id" class="mt-2">
+                                        <div class="fw-semibold small text-muted mb-1">
+                                            Membres et fonctions du bureau mandaté
+                                        </div>
+                                        <field name="official_committee_line_ids" nolabel="1" readonly="1">
+                                            <list create="false" delete="false" default_order="sequence, id">
+                                                <field name="sequence" column_invisible="1"/>
+                                                <field name="image_128" widget="image" string="Photo" options="{'size': [36, 36]}"/>
+                                                <field name="member_code" string="N° membre"/>
+                                                <field name="member_id" string="Membre"/>
+                                                <field name="function_id" string="Fonction dans le bureau"/>
+                                                <field name="is_signatory" string="Signataire" optional="show"/>
+                                                <field name="is_financial" string="Responsable financier" optional="show"/>
+                                            </list>
+                                        </field>
+                                    </div>
 
                                     <field name="special_officer_ids"
                                            invisible="committee_mode != 'special'"
