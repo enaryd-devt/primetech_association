@@ -859,7 +859,11 @@ class AssociationSubscriptionCycleCloseWizard(
                 "name": subscription.display_name,
                 "res_model": "association.subscription",
                 "res_id": subscription.id,
-                "view_mode": "form",
+                # This action is nested in display_notification.params.next.
+                # Nested actions are not normalized by the server action
+                # endpoint, so the web client requires an explicit views
+                # array when it preprocesses the action.
+                "views": [[False, "form"]],
                 "target": "current",
             }
 
