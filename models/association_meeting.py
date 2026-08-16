@@ -256,34 +256,9 @@ class AssociationMeeting(models.Model):
     def _onchange_meeting_committee(self):
         for meeting in self:
             if meeting.committee_mode == "official" and meeting.committee_id:
-                lines = meeting.committee_id.member_line_ids.sorted(
-                    key=lambda line: (line.sequence, line.id)
+                chairperson, secretary = meeting._get_official_responsibles(
+                    meeting.committee_id
                 )
-
-                def member_for_role(keywords):
-                    candidate = lines.filtered(
-                        lambda line: any(
-                            keyword in (line.function_id.name or "").lower()
-                            for keyword in keywords
-                        )
-                    )[:1]
-                    return candidate.member_id if candidate else False
-
-                chairperson = member_for_role(["président", "president"])
-                secretary = member_for_role(["secrétaire", "secretaire"])
-
-                if not chairperson and lines:
-                    chairperson = lines[0].member_id
-                if not secretary:
-                    secretary = next(
-                        (
-                            line.member_id
-                            for line in lines
-                            if line.member_id != chairperson
-                        ),
-                        False,
-                    )
-
                 meeting.chairperson_id = chairperson
                 meeting.secretary_id = secretary
 
@@ -298,6 +273,32 @@ class AssociationMeeting(models.Model):
                 meeting.special_censor_id = False
 
             meeting._refresh_responsible_attendances_onchange()
+
+    def _get_official_responsibles(self, committee):
+        """Return the mandated chairperson and secretary for a committee."""
+        lines = committee.member_line_ids.sorted(
+            key=lambda line: (line.sequence, line.id)
+        )
+
+        def member_for_role(keywords):
+            candidate = lines.filtered(
+                lambda line: any(
+                    keyword in (line.function_id.name or "").lower()
+                    for keyword in keywords
+                )
+            )[:1]
+            return candidate.member_id if candidate else False
+
+        chairperson = member_for_role(["président", "president"])
+        secretary = member_for_role(["secrétaire", "secretaire"])
+        if not chairperson and lines:
+            chairperson = lines[0].member_id
+        if not secretary:
+            secretary = next(
+                (line.member_id for line in lines if line.member_id != chairperson),
+                chairperson,
+            )
+        return chairperson, secretary
 
     def _refresh_responsible_attendances_onchange(self):
         """Refresh roll-call rows for the selected office mode.
@@ -3051,6 +3052,19 @@ class AssociationMeeting(models.Model):
     def create(self, vals_list):
         for vals in vals_list:
 
+            if (
+                vals.get("committee_id")
+                and vals.get("committee_mode", "official") == "official"
+            ):
+                committee = self.env["association.committee"].browse(
+                    vals["committee_id"]
+                )
+                chairperson, secretary = self._get_official_responsibles(
+                    committee
+                )
+                vals["chairperson_id"] = chairperson.id
+                vals["secretary_id"] = secretary.id
+
             if vals.get("name", _("Nouveau")) == _("Nouveau"):
 
                 vals["name"] = (
@@ -3688,6 +3702,32 @@ class AssociationMeeting(models.Model):
     def write(self, vals):
 
         vals = dict(vals)
+        committee_mode = vals.get(
+            "committee_mode",
+            self[:1].committee_mode if self else "official",
+        )
+        if vals.get("committee_id") and committee_mode == "official":
+            committee = self.env["association.committee"].browse(
+                vals["committee_id"]
+            )
+            chairperson, secretary = self._get_official_responsibles(committee)
+            vals["chairperson_id"] = chairperson.id
+            vals["secretary_id"] = secretary.id
+        elif (
+            len(self) == 1
+            and committee_mode == "official"
+            and self.committee_id
+            and (
+                not self.chairperson_id
+                or not self.secretary_id
+                or "state" in vals
+            )
+        ):
+            chairperson, secretary = self._get_official_responsibles(
+                self.committee_id
+            )
+            vals["chairperson_id"] = chairperson.id
+            vals["secretary_id"] = secretary.id
         if vals.get("subscription_id"):
             subscription = self.env["association.subscription"].browse(
                 vals["subscription_id"]

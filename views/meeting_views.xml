@@ -752,12 +752,6 @@
                                                readonly="state == 'closed'"
                                                options="{'no_create': true}"/>
 
-                                        <field
-                                            name="company_id"
-                                            readonly="state != 'draft'"
-                                            groups="base.group_multi_company"
-                                        />
-
                                     </group>
 
                                     <div invisible="committee_mode != 'official' or not committee_id" class="mt-2">
