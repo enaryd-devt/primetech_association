@@ -725,17 +725,18 @@
 
                                         <field name="eligible_officer_ids" invisible="1"/>
 
+
                                         <field
                                             name="chairperson_id"
                                             domain="[('id', 'in', eligible_officer_ids)]"
-                                            readonly="state == 'closed'"
+                                            readonly="state == 'closed' or committee_mode == 'official'"
                                             options="{'no_create': true}"
                                         />
 
                                         <field
                                             name="secretary_id"
                                             domain="[('id', 'in', eligible_officer_ids)]"
-                                            readonly="state == 'closed'"
+                                            readonly="state == 'closed' or committee_mode == 'official'"
                                             options="{'no_create': true}"
                                         />
 
@@ -746,6 +747,23 @@
                                         />
 
                                     </group>
+
+                                    <div invisible="committee_mode != 'official' or not committee_id" class="mt-2">
+                                        <div class="fw-semibold small text-muted mb-1">
+                                            Membres et fonctions du bureau mandaté
+                                        </div>
+                                        <field name="official_committee_line_ids" nolabel="1" readonly="1">
+                                            <list create="false" delete="false" default_order="sequence, id">
+                                                <field name="sequence" column_invisible="1"/>
+                                                <field name="image_128" widget="image" string="Photo" options="{'size': [36, 36]}"/>
+                                                <field name="member_code" string="N° membre"/>
+                                                <field name="member_id" string="Membre"/>
+                                                <field name="function_id" string="Fonction dans le bureau"/>
+                                                <field name="is_signatory" string="Signataire" optional="show"/>
+                                                <field name="is_financial" string="Responsable financier" optional="show"/>
+                                            </list>
+                                        </field>
+                                    </div>
 
                                     <field name="special_officer_ids"
                                            invisible="committee_mode != 'special'"
@@ -850,9 +868,16 @@
                             name="agenda"
                             groups="primetech_association.group_association_meeting_president,primetech_association.group_association_meeting_secretary,primetech_association.group_association_manager,primetech_association.group_association_admin">
 
+                            <field name="can_edit_agenda" invisible="1"/>
+
+                            <div class="alert alert-info py-2 px-3 mb-3" role="alert">
+                                <i class="fa fa-info-circle me-1"/>
+                                Un modèle d'ordre du jour est prérempli. Le secrétaire de séance peut l'adapter avant la clôture.
+                            </div>
+
                             <field
                                 name="agenda"
-                                readonly="state == 'closed'"
+                                readonly="state == 'closed' or not can_edit_agenda"
                                 placeholder="Saisissez les différents points inscrits à l'ordre du jour..."
                             />
 
@@ -1305,12 +1330,6 @@
                                             readonly="1"/>
 
                                         <field
-                                            name="category_id"
-                                            string="Catégorie"
-                                            readonly="1"
-                                            optional="hide"/>
-
-                                        <field
                                             name="amount_due"
                                             string="Dû"
                                             widget="monetary"
@@ -1690,8 +1709,9 @@
 
                                 <strong>Pointage :</strong>
 
-                                générez automatiquement les membres de la cotisation
-                                sélectionnée ou ajoutez manuellement un membre.
+                                la liste des membres se charge automatiquement avec
+                                le cycle de cotisation et les membres du bureau exécutif
+                                sélectionnés. Vous pouvez aussi ajouter manuellement un membre.
 
                                 Cochez ensuite Présent, Absent ou Retard.
 
@@ -1710,7 +1730,7 @@
 
                                 <button
                                     name="action_generate_attendances"
-                                    string="Générer les membres de la cotisation"
+                                    string="Actualiser les membres de la cotisation"
                                     type="object"
                                     class="btn-primary"
                                     icon="fa-users"

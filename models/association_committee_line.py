@@ -130,3 +130,27 @@ class AssociationCommitteeLine(models.Model):
                 and not rec.function_id
             ):
                 rec.function_id = rec.member_id.function_id
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        lines = super().create(vals_list)
+        lines.mapped("committee_id")._sync_member_functions(
+            lines.mapped("member_id")
+        )
+        return lines
+
+    def write(self, vals):
+        members = self.mapped("member_id")
+        committees = self.mapped("committee_id")
+        result = super().write(vals)
+        members |= self.mapped("member_id")
+        committees |= self.mapped("committee_id")
+        committees._sync_member_functions(members)
+        return result
+
+    def unlink(self):
+        members = self.mapped("member_id")
+        committees = self.mapped("committee_id")
+        result = super().unlink()
+        committees._sync_member_functions(members)
+        return result

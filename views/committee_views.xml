@@ -484,12 +484,6 @@
                                     string="Fonction"/>
 
                                 <field
-                                    name="category_id"
-                                    string="Catégorie"
-                                    readonly="1"
-                                    optional="show"/>
-
-                                <field
                                     name="is_signatory"
                                     string="Signataire"
                                     widget="boolean_toggle"/>
