@@ -297,8 +297,20 @@ class AssociationMeeting(models.Model):
             if meeting.special_censor_id not in eligible:
                 meeting.special_censor_id = False
 
-            meeting._onchange_add_committee_attendances()
-            meeting._onchange_add_special_responsible_attendances()
+            meeting._refresh_responsible_attendances_onchange()
+
+    def _refresh_responsible_attendances_onchange(self):
+        """Refresh roll-call rows for the selected office mode.
+
+        Keeping both calls in a dedicated class method also prevents an
+        attendance call from accidentally being left outside the onchange
+        block when this section is extended or merged.
+        """
+        for meeting in self:
+            if meeting.committee_mode == "official":
+                meeting._onchange_add_committee_attendances()
+            else:
+                meeting._onchange_add_special_responsible_attendances()
 
     def _onchange_add_special_responsible_attendances(self):
         Attendance = self.env["association.attendance"]
@@ -349,54 +361,6 @@ class AssociationMeeting(models.Model):
             if values_list:
                 Attendance.create(values_list)
         return True
-
-    def _committee_attendance_member_values(self):
-        self.ensure_one()
-        if self.committee_mode != "official" or not self.committee_id:
-            return []
-        members = self.committee_id.member_line_ids.sorted(
-            key=lambda line: (line.sequence, line.id)
-        ).mapped("member_id").filtered(
-            lambda member: member.active and member.company_id == self.company_id
-        )
-        start_sequence = max(self.attendance_ids.mapped("sequence"), default=0) + 1
-        return [
-            {
-                "member_id": member.id,
-                "sequence": start_sequence + index,
-                "invited": True,
-                "state": "pending",
-            }
-            for index, member in enumerate(members)
-        ]
-
-    def _onchange_add_committee_attendances(self):
-        """Display selected executive committee members in the roll call."""
-        Attendance = self.env["association.attendance"]
-        for meeting in self:
-            existing_ids = set(meeting.attendance_ids.mapped("member_id").ids)
-            new_lines = Attendance.browse()
-            for values in meeting._committee_attendance_member_values():
-                if values["member_id"] not in existing_ids:
-                    new_lines += Attendance.new(values)
-                    existing_ids.add(values["member_id"])
-            meeting.attendance_ids += new_lines
-
-    def _sync_committee_attendances(self):
-        """Persist missing executive committee members without duplicates."""
-        Attendance = self.env["association.attendance"]
-        for meeting in self.filtered("committee_id"):
-            existing_ids = set(meeting.attendance_ids.mapped("member_id").ids)
-            values_list = [
-                {"meeting_id": meeting.id, **values}
-                for values in meeting._committee_attendance_member_values()
-                if values["member_id"] not in existing_ids
-            ]
-            if values_list:
-                Attendance.create(values_list)
-        return True
-
-            meeting._onchange_add_committee_attendances()
 
     def _committee_attendance_member_values(self):
         self.ensure_one()
