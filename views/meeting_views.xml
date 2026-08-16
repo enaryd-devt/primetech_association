@@ -729,16 +729,28 @@
                                         <field
                                             name="chairperson_id"
                                             domain="[('id', 'in', eligible_officer_ids)]"
-                                            readonly="state == 'closed' or committee_mode == 'official'"
+                                            invisible="committee_mode == 'official'"
+                                            readonly="state == 'closed'"
                                             options="{'no_create': true}"
                                         />
 
                                         <field
                                             name="secretary_id"
                                             domain="[('id', 'in', eligible_officer_ids)]"
-                                            readonly="state == 'closed' or committee_mode == 'official'"
+                                            invisible="committee_mode == 'official'"
+                                            readonly="state == 'closed'"
                                             options="{'no_create': true}"
                                         />
+
+                                        <field name="special_treasurer_id"
+                                               invisible="committee_mode == 'official'"
+                                               readonly="state == 'closed'"
+                                               options="{'no_create': true}"/>
+
+                                        <field name="special_censor_id"
+                                               invisible="committee_mode == 'official'"
+                                               readonly="state == 'closed'"
+                                               options="{'no_create': true}"/>
 
                                         <field
                                             name="company_id"
@@ -755,26 +767,11 @@
                                         <field name="official_committee_line_ids" nolabel="1" readonly="1">
                                             <list create="false" delete="false" default_order="sequence, id">
                                                 <field name="sequence" column_invisible="1"/>
-                                                <field name="image_128" widget="image" string="Photo" options="{'size': [36, 36]}"/>
-                                                <field name="member_code" string="N° membre"/>
-                                                <field name="member_id" string="Membre"/>
                                                 <field name="function_id" string="Fonction dans le bureau"/>
-                                                <field name="is_signatory" string="Signataire" optional="show"/>
-                                                <field name="is_financial" string="Responsable financier" optional="show"/>
+                                                <field name="member_id" string="Membre"/>
                                             </list>
                                         </field>
                                     </div>
-
-                                    <field name="special_officer_ids"
-                                           invisible="committee_mode != 'special'"
-                                           readonly="state == 'closed'">
-                                        <list editable="bottom">
-                                            <field name="sequence" widget="handle"/>
-                                            <field name="member_id"/>
-                                            <field name="role"/>
-                                            <field name="note" optional="show"/>
-                                        </list>
-                                    </field>
 
                                 </div>
 
