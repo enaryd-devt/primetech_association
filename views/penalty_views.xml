@@ -284,11 +284,6 @@
                             />
 
                             <field
-                                name="category_id"
-                                readonly="1"
-                            />
-
-                            <field
                                 name="function_id"
                                 readonly="1"
                             />

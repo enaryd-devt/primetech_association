@@ -99,6 +99,21 @@ class AssociationPaymentLine(models.Model):
         domain="[('id', 'in', eligible_subscription_ids)]",
     )
 
+    eligible_period_ids = fields.Many2many(
+        comodel_name="association.subscription.period",
+        string="Cycles disponibles",
+        compute="_compute_eligible_period_ids",
+    )
+
+    subscription_period_id = fields.Many2one(
+        comodel_name="association.subscription.period",
+        string="Cycle de cotisation",
+        ondelete="restrict",
+        index=True,
+        domain="[('id', 'in', eligible_period_ids)]",
+        help="Cycle non payé ou partiellement payé concerné par cette affectation.",
+    )
+
 
     # ==========================================================
     # LIGNE TECHNIQUE DU MEMBRE
@@ -337,8 +352,9 @@ class AssociationPaymentLine(models.Model):
 
             eligible_lines = subscription_lines.filtered(
                 lambda line: (
-                    line.subscription_id.id
-                    not in selected_subscription_ids
+                    line.subscription_id.id not in selected_subscription_ids
+                    and line.payment_state in ("not_paid", "partial")
+                    and (line.balance or 0.0) > 0.0
                 )
             )
 
@@ -354,6 +370,45 @@ class AssociationPaymentLine(models.Model):
     # ==========================================================
     # RÉSOLUTION DE LA LIGNE DE COTISATION
     # ==========================================================
+
+    @api.depends(
+        "subscription_id",
+        "payment_id.member_id",
+        "payment_id.company_id",
+        "subscription_line_id",
+        "subscription_line_id.payment_line_ids.amount_paid",
+        "subscription_line_id.payment_line_ids.payment_id.state",
+        "subscription_line_id.payment_line_ids.subscription_period_id",
+    )
+    def _compute_eligible_period_ids(self):
+        """Offer open cycles whose balance is not settled for this member."""
+        Period = self.env["association.subscription.period"]
+        PaymentLine = self.env["association.payment.line"]
+        for record in self:
+            record.eligible_period_ids = False
+            if not record.subscription_id or not record.payment_id.member_id:
+                continue
+            periods = Period.search([
+                ("subscription_id", "=", record.subscription_id.id),
+                ("company_id", "=", record.payment_id.company_id.id),
+                ("state", "=", "running"),
+            ])
+            available = Period
+            subscription_line = record.subscription_line_id
+            if not subscription_line:
+                subscription_line = self.env["association.subscription.line"].search([
+                    ("subscription_id", "=", record.subscription_id.id),
+                    ("member_id", "=", record.payment_id.member_id.id),
+                ], limit=1)
+            for period in periods:
+                paid = sum(PaymentLine.search([
+                    ("subscription_line_id", "=", subscription_line.id),
+                    ("subscription_period_id", "=", period.id),
+                    ("payment_id.state", "=", "confirmed"),
+                ]).mapped("amount_paid")) if subscription_line else 0.0
+                if paid < (record.subscription_id.amount or 0.0):
+                    available |= period
+            record.eligible_period_ids = available
 
     def _resolve_subscription_line(self):
 
@@ -411,6 +466,22 @@ class AssociationPaymentLine(models.Model):
                 subscription_line
             )
 
+            if (
+                record.subscription_period_id
+                and record.subscription_period_id.subscription_id
+                != record.subscription_id
+            ):
+                raise ValidationError(_("Le cycle sélectionné ne correspond pas à la cotisation."))
+
+            if not record.subscription_period_id:
+                record.subscription_period_id = self.env[
+                    "association.subscription.period"
+                ].search([
+                    ("subscription_id", "=", record.subscription_id.id),
+                    ("state", "=", "running"),
+                    ("company_id", "=", record.payment_id.company_id.id),
+                ], order="sequence desc, id desc", limit=1)
+
         return True
 
 
@@ -458,6 +529,7 @@ class AssociationPaymentLine(models.Model):
             # ======================================================
 
             record.subscription_line_id = False
+            record.subscription_period_id = False
             record.amount_paid = 0.0
 
             if not record.subscription_id:
@@ -587,6 +659,7 @@ class AssociationPaymentLine(models.Model):
             record.subscription_line_id = (
                 subscription_line
             )
+            record.subscription_period_id = running_period
 
             # ======================================================
             # MONTANT RESTANT DU CYCLE COURANT
@@ -665,6 +738,7 @@ class AssociationPaymentLine(models.Model):
         "subscription_line_id.payment_line_ids.payment_id.state",
         "amount_paid",
         "payment_id.state",
+        "subscription_period_id",
     )
     def _compute_payment_amounts(self):
 
@@ -705,6 +779,8 @@ class AssociationPaymentLine(models.Model):
                     lambda line: (
                         line.payment_id.state == "confirmed"
                         and line != record
+                        and line.subscription_period_id
+                        == record.subscription_period_id
                     )
                 )
             )
@@ -861,7 +937,7 @@ class AssociationPaymentLine(models.Model):
     @api.depends(
         "payment_id.payment_date",
         "payment_id.state",
-        "payment_id.subscription_period_id",
+        "subscription_period_id",
         "subscription_line_id",
         "subscription_line_id.subscription_id",
         "subscription_line_id.subscription_id.period_ids",
@@ -917,9 +993,7 @@ class AssociationPaymentLine(models.Model):
             # CYCLE EXPLICITEMENT LIÉ AU PAIEMENT
             # ======================================================
 
-            period = (
-                record.payment_id.subscription_period_id
-            )
+            period = record.subscription_period_id
 
             # ======================================================
             # COMPATIBILITÉ AVEC LES ANCIENS PAIEMENTS

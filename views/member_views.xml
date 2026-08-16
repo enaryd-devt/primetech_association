@@ -27,7 +27,6 @@
                 <field name="phone"/>
                 <field name="mobile"/>
                 <field name="email"/>
-                <field name="category_id"/>
                 <field name="function_id"/>
 
                 <separator/>
@@ -60,11 +59,6 @@
                 <separator/>
 
                 <group expand="0" string="Regrouper par">
-
-                    <filter
-                        name="group_by_category"
-                        string="Catégorie"
-                        context="{'group_by': 'category_id'}"/>
 
                     <filter
                         name="group_by_function"
@@ -106,11 +100,17 @@
                 decoration-danger="state == 'excluded'"
                 decoration-muted="state == 'resigned' or not active">
 
+                <header>
+                    <button name="action_print_member_directory" type="object"
+                            string="Imprimer la liste" icon="fa-print"/>
+                </header>
+
                 <field name="sequence" widget="handle"/>
 
                 <field
                     name="image_128"
                     widget="image"
+                    class="association_member_list_avatar"
                     string="Photo"
                     optional="show"
                     options="{
@@ -126,10 +126,6 @@
                 <field
                     name="name"
                     string="Membre"/>
-
-                <field
-                    name="category_id"
-                    optional="show"/>
 
                 <field
                     name="function_id"
@@ -304,14 +300,11 @@
 
                     <div class="oe_button_box" name="button_box">
 
-                    <div class="oe_stat_button">
-
-                        <div class="o_field_widget o_stat_info">
-                            <button
-                                name="action_view_member_account_transactions"
-                                type="object"
-                                class="oe_stat_button"
-                                icon="fa-exchange">
+                        <button
+                            name="action_view_member_account_transactions"
+                            type="object"
+                            class="oe_stat_button"
+                            icon="fa-exchange">
 
                                 <div class="o_field_widget o_stat_info">
 
@@ -332,11 +325,7 @@
 
                                 </div>
 
-                            </button>
-
-                        </div>
-
-                    </div>
+                        </button>
                         <button
                             class="oe_stat_button"
                             icon="fa-credit-card"
@@ -474,16 +463,6 @@
                                     </span>
 
 
-                                    <span
-                                        class="badge rounded-pill text-bg-light border"
-                                        invisible="not category_id">
-
-                                        <i class="fa fa-tag me-1"/>
-
-                                        <field name="category_id"/>
-
-                                    </span>
-
 
                                     <span
                                         class="badge rounded-pill text-bg-light border"
@@ -513,7 +492,7 @@
                                 <field
                                     name="image_1920"
                                     widget="image"
-                                    class="oe_avatar"
+                                    class="oe_avatar association_member_form_avatar"
                                     options="{
                                         'preview_image': 'image_128',
                                         'size': [160, 160]
@@ -911,7 +890,6 @@
                 <field name="name"/>
                 <field name="member_code"/>
                 <field name="image_128"/>
-                <field name="category_id"/>
                 <field name="function_id"/>
                 <field name="phone"/>
                 <field name="mobile"/>
@@ -1013,16 +991,6 @@
                             <!-- MEMBER INFORMATION -->
 
                             <div class="small">
-
-                                <div
-                                    class="mb-2"
-                                    t-if="record.category_id.raw_value">
-
-                                    <i class="fa fa-tag me-2 text-muted"/>
-
-                                    <field name="category_id"/>
-
-                                </div>
 
 
                                 <div
