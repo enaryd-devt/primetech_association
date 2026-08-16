@@ -113,6 +113,11 @@ class AssociationSubscriptionPeriod(models.Model):
         store=True,
     )
 
+    penalty_grace_days_remaining = fields.Integer(
+        string="Grâce restante (jours)",
+        compute="_compute_penalty_grace_days_remaining",
+    )
+
     penalty_amount = fields.Monetary(
         string="Pénalité",
         currency_field="currency_id",
@@ -494,6 +499,18 @@ class AssociationSubscriptionPeriod(models.Model):
                 record.due_date
                 + timedelta(days=grace_days)
             )
+
+    @api.depends("penalty_deadline", "penalty_applied")
+    def _compute_penalty_grace_days_remaining(self):
+        today = fields.Date.context_today(self)
+        for record in self:
+            if record.penalty_applied or not record.penalty_deadline:
+                record.penalty_grace_days_remaining = 0
+            else:
+                record.penalty_grace_days_remaining = max(
+                    (record.penalty_deadline - today).days,
+                    0,
+                )
 
     # ==========================================================
     # APPLIQUER LA PÉNALITÉ
