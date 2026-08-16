@@ -1,4 +1,50 @@
 // Stable member avatar zone in the association card form.
+.association_member_form_avatar {
+    width: 160px !important;
+    height: 160px !important;
+    min-width: 160px !important;
+    min-height: 160px !important;
+    max-width: 160px !important;
+    max-height: 160px !important;
+    overflow: hidden !important;
+    border: 3px solid #fff;
+    border-radius: 14px;
+    background: #f1f5f9;
+    box-shadow: 0 5px 16px rgba(15, 23, 42, .14);
+
+    .o_field_image,
+    img {
+        display: block !important;
+        width: 160px !important;
+        height: 160px !important;
+        min-width: 160px !important;
+        min-height: 160px !important;
+        max-width: 160px !important;
+        max-height: 160px !important;
+        object-fit: cover !important;
+        object-position: center !important;
+    }
+}
+
+// Keep every member list row aligned, regardless of the uploaded image ratio.
+.o_list_view .association_member_list_avatar,
+.o_list_view .association_member_list_avatar .o_field_image,
+.o_list_view .association_member_list_avatar img {
+    width: 40px !important;
+    height: 40px !important;
+    min-width: 40px !important;
+    min-height: 40px !important;
+    max-width: 40px !important;
+    max-height: 40px !important;
+    object-fit: cover !important;
+    object-position: center !important;
+}
+
+.o_list_view .association_member_list_avatar img {
+    border: 1px solid #dbe4ee;
+    border-radius: 8px;
+}
+
 .association_card_avatar_zone {
     flex: 0 0 128px !important;
     width: 128px !important;

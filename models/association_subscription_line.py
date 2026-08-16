@@ -274,6 +274,11 @@ class AssociationSubscriptionLine(models.Model):
         compute="_compute_penalty_deadline",
     )
 
+    penalty_grace_days_remaining = fields.Integer(
+        string="Grâce restante (jours)",
+        compute="_compute_penalty_grace_days_remaining",
+    )
+
     # ==========================================================
     # NOTES
     # ==========================================================
@@ -307,21 +312,13 @@ class AssociationSubscriptionLine(models.Model):
         "payment_line_ids.payment_id.state",
         "payment_line_ids.payment_id.payment_date",
         "payment_line_ids.payment_id.subscription_period_id",
+        "payment_line_ids.subscription_period_id",
     )
     def _compute_current_cycle_payment(self):
 
         PaymentLine = self.env[
             "association.payment.line"
         ]
-
-        Payment = self.env[
-            "association.payment"
-        ]
-
-        has_subscription_period = (
-            "subscription_period_id"
-            in Payment._fields
-        )
 
         for record in self:
 
@@ -402,32 +399,13 @@ class AssociationSubscriptionLine(models.Model):
             # FILTRAGE PAR CYCLE RÉEL
             # ======================================================
 
-            if has_subscription_period:
-
-                domain.append(
-                    (
-                        "payment_id.subscription_period_id",
-                        "=",
-                        period.id,
-                    )
-                )
-
-            else:
-
-                domain.extend(
-                    [
-                        (
-                            "payment_id.payment_date",
-                            ">=",
-                            period.period_start_date,
-                        ),
-                        (
-                            "payment_id.payment_date",
-                            "<=",
-                            period.period_end_date,
-                        ),
-                    ]
-                )
+            domain += [
+                "|",
+                ("subscription_period_id", "=", period.id),
+                "&",
+                ("subscription_period_id", "=", False),
+                ("payment_id.subscription_period_id", "=", period.id),
+            ]
 
             # ======================================================
             # RECHERCHE DIRECTE
@@ -661,13 +639,25 @@ class AssociationSubscriptionLine(models.Model):
                 period.due_date
                 + timedelta(days=grace_days)
             )
+
+    @api.depends("penalty_deadline", "penalty_applied")
+    def _compute_penalty_grace_days_remaining(self):
+        today = fields.Date.context_today(self)
+        for line in self:
+            if line.penalty_applied or not line.penalty_deadline:
+                line.penalty_grace_days_remaining = 0
+            else:
+                line.penalty_grace_days_remaining = max(
+                    (line.penalty_deadline - today).days,
+                    0,
+                )
         
 
     # ==========================================================
     # APPLIQUER LA PÉNALITÉ
     # ==========================================================
 
-    def _apply_late_penalty(self):
+    def _apply_late_penalty(self, force=False):
 
         today = fields.Date.context_today(self)
 
@@ -684,7 +674,7 @@ class AssociationSubscriptionLine(models.Model):
             if not line.penalty_deadline:
                 continue
 
-            if today <= line.penalty_deadline:
+            if not force and today < line.penalty_deadline:
                 continue
 
             if line.payment_state == "paid":
@@ -693,10 +683,12 @@ class AssociationSubscriptionLine(models.Model):
             penalty_amount = 0.0
 
             if subscription.penalty_type == "fixed":
-
+                base_amount = subscription.amount or 0.0
+                outstanding = min(max(line.balance or 0.0, 0.0), base_amount)
                 penalty_amount = (
-                    subscription.penalty_amount
-                    or 0.0
+                    (subscription.penalty_amount or 0.0)
+                    * outstanding / base_amount
+                    if base_amount else 0.0
                 )
 
             elif subscription.penalty_type == "percentage":
@@ -742,7 +734,7 @@ class AssociationSubscriptionLine(models.Model):
         ])
         overdue_lines = lines.filtered(
             lambda line: line.penalty_deadline
-            and line.penalty_deadline < today
+            and line.penalty_deadline <= today
             and line.payment_state != "paid"
         )
         overdue_lines._apply_late_penalty()
@@ -1213,6 +1205,9 @@ class AssociationSubscriptionLine(models.Model):
 
                             "subscription_id":
                                 self.subscription_id.id,
+
+                            "subscription_period_id":
+                                period.id,
 
                             "amount_paid":
                                 amount_to_pay,
