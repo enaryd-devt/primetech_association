@@ -76,6 +76,13 @@ class AssociationSubscriptionCycleCloseWizard(
         readonly=True,
     )
 
+    penalty_collected_amount = fields.Monetary(
+        string="Pénalités reversées",
+        related="period_id.penalty_collected_amount",
+        currency_field="currency_id",
+        readonly=True,
+    )
+
     allocated_amount = fields.Monetary(
         string="Déjà attribué",
         related="period_id.allocated_amount",
@@ -663,6 +670,11 @@ class AssociationSubscriptionCycleCloseWizard(
                 )
             )
 
+        # Penalties are never part of the distributable pot. Make sure each
+        # collected supplement has its dedicated financial transaction before
+        # any allocation or treasury settlement is performed.
+        period._ensure_penalty_fund_transfers()
+
         # ======================================================
         # CAS 1
         # BÉNÉFICIAIRES
@@ -802,6 +814,8 @@ class AssociationSubscriptionCycleCloseWizard(
             body=_(
                 "Le cycle %(cycle)s a été terminé.\n\n"
                 "Montant collecté : %(collected).2f\n"
+                "Pénalités reversées (non attribuables) : "
+                "%(penalties).2f\n"
                 "Montant attribué : %(allocated).2f\n"
                 "Montant transféré en trésorerie : "
                 "%(treasury).2f"
@@ -812,6 +826,9 @@ class AssociationSubscriptionCycleCloseWizard(
 
                 "collected":
                     period.collected_amount,
+
+                "penalties":
+                    period.penalty_collected_amount,
 
                 "allocated":
                     period.allocated_amount,
@@ -826,7 +843,7 @@ class AssociationSubscriptionCycleCloseWizard(
         # ======================================================
 
         if self.meeting_subscription_session_id:
-            return {
+            next_action = {
                 "type": "ir.actions.client",
                 "tag": "primetech_refresh_subscription_table",
                 "params": {
@@ -836,20 +853,36 @@ class AssociationSubscriptionCycleCloseWizard(
                     "close_dialog": True,
                 },
             }
+        else:
+            next_action = {
+                "type": "ir.actions.act_window",
+                "name": subscription.display_name,
+                "res_model": "association.subscription",
+                "res_id": subscription.id,
+                "view_mode": "form",
+                "target": "current",
+            }
 
-        return {
-            "type": "ir.actions.act_window",
-            "name":
-                subscription.display_name,
-            "res_model":
-                "association.subscription",
-            "res_id":
-                subscription.id,
-            "view_mode":
-                "form",
-            "target":
-                "current",
-        }
+        if period.penalty_collected_amount > 0:
+            return {
+                "type": "ir.actions.client",
+                "tag": "display_notification",
+                "params": {
+                    "title": _("Pénalités reversées"),
+                    "message": _(
+                        "%(amount).2f %(currency)s de pénalités ont été "
+                        "exclus de la cagnotte attribuable et reversés sur "
+                        "le compte des pénalités."
+                    ) % {
+                        "amount": period.penalty_collected_amount,
+                        "currency": period.currency_id.name or "",
+                    },
+                    "type": "success",
+                    "sticky": True,
+                    "next": next_action,
+                },
+            }
+        return next_action
 
     # ==============================================================
     # LIGNE D'ATTRIBUTION DU WIZARD
