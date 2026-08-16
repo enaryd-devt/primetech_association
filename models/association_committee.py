@@ -258,6 +258,44 @@ class AssociationCommittee(models.Model):
     # ACTIONS WORKFLOW
     # ==========================================================
 
+    def _sync_member_functions(self, members=None):
+        """Apply the current committee role or restore the ordinary role."""
+        members = members or self.mapped("member_line_ids.member_id")
+        if not members:
+            return
+
+        today = fields.Date.context_today(self)
+        for member in members:
+            # Odoo cannot order a model search by a dotted relational field
+            # (``committee_id.start_date``).  Select the current committee
+            # directly so that its native date ordering remains valid.
+            current_committee = self.search(
+                [
+                    ("member_line_ids.member_id", "=", member.id),
+                    ("state", "=", "running"),
+                    ("start_date", "<=", today),
+                    ("end_date", ">=", today),
+                ],
+                order="start_date desc, id desc",
+                limit=1,
+            )
+            current_line = current_committee.member_line_ids.filtered(
+                lambda line: line.member_id == member
+            )[:1]
+            if current_committee and current_line:
+                member.write({
+                    "function_id": current_line.function_id.id,
+                    "committee_id": current_committee.id,
+                })
+            else:
+                default_function = member.with_company(
+                    member.company_id
+                )._default_member_function()
+                member.write({
+                    "function_id": default_function.id if default_function else False,
+                    "committee_id": False,
+                })
+
     def action_start(self):
         for rec in self:
             if not rec.member_line_ids:
@@ -271,6 +309,7 @@ class AssociationCommittee(models.Model):
             rec.write({
                 "state": "running",
             })
+            rec._sync_member_functions()
 
             rec.message_post(
                 body=_("Le mandat du Bureau Exécutif a été démarré.")
@@ -280,9 +319,11 @@ class AssociationCommittee(models.Model):
 
     def action_expire(self):
         for rec in self:
+            members = rec.member_line_ids.mapped("member_id")
             rec.write({
                 "state": "expired",
             })
+            rec._sync_member_functions(members)
 
             rec.message_post(
                 body=_("Le mandat du Bureau Exécutif a été clôturé.")
@@ -292,9 +333,11 @@ class AssociationCommittee(models.Model):
 
     def action_cancel(self):
         for rec in self:
+            members = rec.member_line_ids.mapped("member_id")
             rec.write({
                 "state": "cancelled",
             })
+            rec._sync_member_functions(members)
 
             rec.message_post(
                 body=_("Le Bureau Exécutif a été annulé.")
@@ -304,12 +347,35 @@ class AssociationCommittee(models.Model):
 
     def action_reset_draft(self):
         for rec in self:
+            members = rec.member_line_ids.mapped("member_id")
             rec.write({
                 "state": "draft",
             })
+            rec._sync_member_functions(members)
 
             rec.message_post(
                 body=_("Le Bureau Exécutif a été remis en brouillon.")
             )
 
+        return True
+
+    @api.model
+    def _cron_sync_committee_functions(self):
+        """Close elapsed mandates and keep member roles aligned each day."""
+        today = fields.Date.context_today(self)
+        expired = self.search([
+            ("state", "=", "running"),
+            ("end_date", "<", today),
+        ])
+        affected_members = expired.mapped("member_line_ids.member_id")
+        if expired:
+            expired.write({"state": "expired"})
+
+        running = self.search([
+            ("state", "=", "running"),
+            ("start_date", "<=", today),
+            ("end_date", ">=", today),
+        ])
+        affected_members |= running.mapped("member_line_ids.member_id")
+        (expired | running)._sync_member_functions(affected_members)
         return True
