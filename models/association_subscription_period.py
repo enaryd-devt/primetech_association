@@ -179,6 +179,17 @@ class AssociationSubscriptionPeriod(models.Model):
         currency_field="currency_id",
     )
 
+    penalty_collected_amount = fields.Monetary(
+        string="Pénalités encaissées",
+        compute="_compute_pot_statistics",
+        currency_field="currency_id",
+        help=(
+            "Part des encaissements correspondant aux pénalités. Ce "
+            "montant est reversé au compte des pénalités et ne peut pas "
+            "être attribué aux bénéficiaires."
+        ),
+    )
+
     allocated_amount = fields.Monetary(
         string="Montant attribué",
         compute="_compute_pot_statistics",
@@ -340,6 +351,26 @@ class AssociationSubscriptionPeriod(models.Model):
             lambda line: line.active
         )
 
+    def _get_confirmed_payment_lines(self):
+        """Return confirmed allocations belonging to this exact cycle."""
+        self.ensure_one()
+        return self.env["association.payment.line"].search([
+            ("subscription_line_id.subscription_id", "=", self.subscription_id.id),
+            ("payment_id.state", "=", "confirmed"),
+            "|",
+            ("subscription_period_id", "=", self.id),
+            "&",
+            ("subscription_period_id", "=", False),
+            ("payment_id.subscription_period_id", "=", self.id),
+        ])
+
+    def _ensure_penalty_fund_transfers(self):
+        """Create any missing penalty transfers before closing the cycle."""
+        for period in self:
+            payments = period._get_confirmed_payment_lines().mapped("payment_id")
+            payments._create_penalty_fund_transactions()
+        return True
+
     # ==========================================================
     # CAGNOTTE
     # ==========================================================
@@ -347,6 +378,7 @@ class AssociationSubscriptionPeriod(models.Model):
     @api.depends(
         "subscription_id.line_ids.amount_paid",
         "subscription_id.line_ids.payment_state",
+        "subscription_id.line_ids.penalty_amount",
         "allocation_ids.amount",
         "allocation_ids.state",
         "settled_amount",
@@ -361,6 +393,17 @@ class AssociationSubscriptionPeriod(models.Model):
                 lines.mapped("amount_paid")
             )
 
+            payment_lines = period._get_confirmed_payment_lines()
+            penalty_collected_amount = 0.0
+            for line in lines:
+                paid = sum(payment_lines.filtered(
+                    lambda payment_line: payment_line.subscription_line_id == line
+                ).mapped("amount_paid"))
+                penalty_collected_amount += min(
+                    max(paid - (period.subscription_id.amount or 0.0), 0.0),
+                    line.penalty_amount or 0.0,
+                )
+
             allocated_amount = sum(
                 period.allocation_ids.filtered(
                     lambda allocation:
@@ -372,9 +415,10 @@ class AssociationSubscriptionPeriod(models.Model):
             )
 
             period.collected_amount = collected_amount
+            period.penalty_collected_amount = penalty_collected_amount
             period.allocated_amount = allocated_amount
             period.available_amount = max(
-                collected_amount - allocated_amount
+                collected_amount - penalty_collected_amount - allocated_amount
                 - (period.settled_amount or 0.0),
                 0.0,
             )

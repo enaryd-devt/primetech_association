@@ -305,6 +305,21 @@ class AssociationSubscription(models.Model):
         default=0.0,
     )
 
+    penalty_distribution = fields.Selection(
+        selection=[
+            ("equitable", "Équitable (pénalité complète)"),
+            ("prorata", "Au prorata du montant restant dû"),
+        ],
+        string="Répartition de la pénalité",
+        default="equitable",
+        required=True,
+        help=(
+            "En mode équitable, tout membre encore redevable reçoit la "
+            "pénalité complète. Au prorata, la pénalité est réduite "
+            "selon la part de cotisation restant à payer."
+        ),
+    )
+
     penalty_account_id = fields.Many2one(
         comodel_name="association.fund",
         string="Compte dédié aux pénalités",
@@ -383,19 +398,22 @@ class AssociationSubscription(models.Model):
         today = fields.Date.context_today(self)
         for subscription in self:
             lines = subscription.line_ids
-            lines.write({
+            # An applied penalty is a locked debt: later configuration
+            # changes must never rewrite the amount owed by the member.
+            configurable_lines = lines.filtered(lambda line: not line.penalty_applied)
+            configurable_lines.write({
                 "penalty_amount": 0.0,
                 "penalty_applied": False,
                 "penalty_date": False,
                 "penalty_reason": False,
             })
-            lines._compute_penalty_deadline()
+            configurable_lines._compute_penalty_deadline()
             # Recompute the base balance without the previous penalty before
             # deciding whether each member is paid, partial or still due.
-            lines._compute_current_cycle_payment()
+            configurable_lines._compute_current_cycle_payment()
             if not subscription.penalty_enabled:
                 continue
-            due_lines = lines.filtered(
+            due_lines = configurable_lines.filtered(
                 lambda line: line.payment_state != "paid"
                 and line.penalty_deadline
                 and (
@@ -409,18 +427,73 @@ class AssociationSubscription(models.Model):
             lines._compute_penalty_grace_days_remaining()
         return True
 
+    def _calculate_penalty_amount(self, outstanding):
+        """Return the amount to lock for an unpaid base balance."""
+        self.ensure_one()
+        base_amount = self.amount or 0.0
+        outstanding = min(max(outstanding or 0.0, 0.0), base_amount)
+        if not base_amount or not outstanding:
+            return 0.0
+
+        ratio = (
+            outstanding / base_amount
+            if self.penalty_distribution == "prorata"
+            else 1.0
+        )
+        if self.penalty_type == "fixed":
+            return (self.penalty_amount or 0.0) * ratio
+        return base_amount * (self.penalty_rate or 0.0) / 100.0 * ratio
+
+    def action_lock_due_penalties(self):
+        """Lock penalties whose grace deadline has been reached."""
+        today = fields.Date.context_today(self)
+        locked_count = 0
+        for subscription in self:
+            if not subscription.penalty_enabled:
+                raise UserError(_(
+                    "Activez les pénalités avant de lancer leur verrouillage."
+                ))
+            lines = subscription.line_ids.filtered(
+                lambda line: not line.penalty_applied
+                and line.payment_state != "paid"
+                and line.penalty_deadline
+                and line.penalty_deadline <= today
+            )
+            lines._apply_late_penalty()
+            locked_count += len(lines.filtered("penalty_applied"))
+            periods = lines.mapped("subscription_id.current_period_id").exists()
+            if periods:
+                periods._apply_late_penalty()
+
+        return {
+            "type": "ir.actions.client",
+            "tag": "display_notification",
+            "params": {
+                "title": _("Pénalités verrouillées"),
+                "message": _("%(count)s pénalité(s) ont été verrouillées.")
+                % {"count": locked_count},
+                "type": "success" if locked_count else "warning",
+                "sticky": False,
+            },
+        }
+
     @api.onchange(
         "penalty_enabled",
         "penalty_grace_days",
         "penalty_type",
         "penalty_amount",
         "penalty_rate",
+        "penalty_distribution",
     )
     def _onchange_penalty_configuration(self):
         """Refresh the embedded member table before the form is saved."""
         today = fields.Date.context_today(self)
         for subscription in self:
             for line in subscription.line_ids:
+                # Once applied, the penalty is part of the member's locked
+                # debt and must not change with subsequent form edits.
+                if line.penalty_applied:
+                    continue
                 line.penalty_amount = 0.0
                 line.penalty_applied = False
                 line.penalty_date = False
@@ -437,18 +510,9 @@ class AssociationSubscription(models.Model):
                     )
                 )
                 if is_due:
-                    base_amount = subscription.amount or 0.0
-                    outstanding = min(max(line.balance or 0.0, 0.0), base_amount)
-                    if subscription.penalty_type == "fixed":
-                        line.penalty_amount = (
-                            (subscription.penalty_amount or 0.0)
-                            * outstanding / base_amount
-                            if base_amount else 0.0
-                        )
-                    else:
-                        line.penalty_amount = (
-                            outstanding * (subscription.penalty_rate or 0.0) / 100.0
-                        )
+                    line.penalty_amount = subscription._calculate_penalty_amount(
+                        line.balance
+                    )
                     line.penalty_applied = line.penalty_amount > 0
                     line.penalty_date = today if line.penalty_applied else False
                 line._compute_current_cycle_payment()
@@ -461,6 +525,7 @@ class AssociationSubscription(models.Model):
             "penalty_type",
             "penalty_amount",
             "penalty_rate",
+            "penalty_distribution",
         }
         result = super().write(vals)
         if penalty_fields.intersection(vals):
