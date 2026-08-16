@@ -684,24 +684,7 @@ class AssociationSubscriptionLine(models.Model):
             if line.payment_state == "paid":
                 continue
 
-            penalty_amount = 0.0
-
-            if subscription.penalty_type == "fixed":
-                base_amount = subscription.amount or 0.0
-                outstanding = min(max(line.balance or 0.0, 0.0), base_amount)
-                penalty_amount = (
-                    (subscription.penalty_amount or 0.0)
-                    * outstanding / base_amount
-                    if base_amount else 0.0
-                )
-
-            elif subscription.penalty_type == "percentage":
-
-                penalty_amount = (
-                    max(line.balance or 0.0, 0.0)
-                    * (subscription.penalty_rate or 0.0)
-                    / 100.0
-                )
+            penalty_amount = subscription._calculate_penalty_amount(line.balance)
 
             if penalty_amount <= 0:
                 continue
