@@ -219,6 +219,10 @@
                                             <field name="collected_amount" readonly="1"/>
                                         </div>
 
+                                        <div class="text-warning mt-1" style="font-size: 10px;">
+                                            dont <field name="penalty_collected_amount" readonly="1"/> de pénalités non attribuables
+                                        </div>
+
                                     </div>
 
                                     <div
