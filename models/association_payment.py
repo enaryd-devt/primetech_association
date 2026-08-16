@@ -427,6 +427,64 @@ class AssociationPayment(models.Model):
 
         return True
 
+    def _create_penalty_fund_transactions(self):
+        """Track the penalty supplement separately from subscription capital."""
+        Transaction = self.env["association.fund.transaction"]
+        for payment in self:
+            amounts_by_account = {}
+            for line in payment.line_ids.filtered("subscription_line_id"):
+                subscription_line = line.subscription_line_id
+                subscription = subscription_line.subscription_id
+                account = subscription.penalty_account_id
+                penalty_due = subscription_line.penalty_amount or 0.0
+                if penalty_due <= 0:
+                    continue
+                previous = sum(subscription_line.payment_line_ids.filtered(
+                    lambda item: item != line
+                    and item.payment_id.state == "confirmed"
+                    and item.subscription_period_id == line.subscription_period_id
+                ).mapped("amount_paid"))
+                base_due = subscription.amount or 0.0
+                penalty_before = min(max(previous - base_due, 0.0), penalty_due)
+                penalty_after = min(
+                    max(previous + (line.amount_paid or 0.0) - base_due, 0.0),
+                    penalty_due,
+                )
+                supplement = max(penalty_after - penalty_before, 0.0)
+                if supplement and not account:
+                    raise ValidationError(_(
+                        "Configurez le compte dédié aux pénalités sur la "
+                        "cotisation %(subscription)s avant d'encaisser "
+                        "le supplément de pénalité."
+                    ) % {"subscription": subscription.display_name})
+                if supplement:
+                    amounts_by_account[account] = (
+                        amounts_by_account.get(account, 0.0) + supplement
+                    )
+            for account, amount in amounts_by_account.items():
+                existing = Transaction.search([
+                    ("origin_model", "=", "association.payment.penalty"),
+                    ("origin_res_id", "=", payment.id),
+                    ("fund_id", "=", account.id),
+                    ("state", "!=", "cancelled"),
+                ], limit=1)
+                if existing:
+                    continue
+                transaction = Transaction.create({
+                    "fund_id": account.id,
+                    "transaction_type": "in",
+                    "amount": amount,
+                    "transaction_date": payment.payment_date,
+                    "description": _("Pénalité encaissée - %s") % payment.name,
+                    "company_id": payment.company_id.id,
+                    "payment_id": payment.id,
+                    "origin_model": "association.payment.penalty",
+                    "origin_res_id": payment.id,
+                    "origin_reference": payment.name,
+                })
+                transaction.action_validate()
+        return True
+
     # ==========================================================
     # SOLDE DU COMPTE MEMBRE
     # ==========================================================
@@ -1690,9 +1748,7 @@ class AssociationPayment(models.Model):
                     subscription_line.subscription_id
                 )
 
-                period = (
-                    subscription.current_period_id
-                )
+                period = line.subscription_period_id
 
                 # ==================================================
                 # CONTRÔLE DU CYCLE
@@ -1748,6 +1804,7 @@ class AssociationPayment(models.Model):
                             and
                             payment_line.payment_id.id
                             != record.id
+                            and payment_line.subscription_period_id == period
                             and
                             payment_line.payment_id.payment_date
                             and
@@ -1929,6 +1986,7 @@ class AssociationPayment(models.Model):
                     "state": "confirmed",
                 }
             )
+            record._create_penalty_fund_transactions()
 
             # ======================================================
             # PAIEMENT DEPUIS LE COMPTE MEMBRE

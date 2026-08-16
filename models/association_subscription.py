@@ -304,6 +304,15 @@ class AssociationSubscription(models.Model):
         default=0.0,
     )
 
+    penalty_account_id = fields.Many2one(
+        comodel_name="association.fund",
+        string="Compte dédié aux pénalités",
+        domain="[('company_id', '=', company_id), ('active', '=', True)]",
+        tracking=True,
+        copy=False,
+        help="Compte financier qui reçoit uniquement les suppléments encaissés au titre des pénalités.",
+    )
+
     # ==========================================================
     # COMPTE DE VERSEMENT
     # ==========================================================
@@ -367,6 +376,27 @@ class AssociationSubscription(models.Model):
                         "être négatif."
                     )
                 )
+
+    def write(self, vals):
+        immediate_subscriptions = self.filtered(
+            lambda subscription: (
+                vals.get("penalty_enabled", subscription.penalty_enabled)
+                and vals.get(
+                    "penalty_grace_days",
+                    subscription.penalty_grace_days,
+                ) == 0
+                and (
+                    vals.get("penalty_enabled") is True
+                    or vals.get("penalty_grace_days") == 0
+                )
+            )
+        )
+        result = super().write(vals)
+        if immediate_subscriptions:
+            immediate_subscriptions.mapped("line_ids").filtered(
+                lambda line: line.payment_state != "paid"
+            )._apply_late_penalty(force=True)
+        return result
 
     # ==========================================================
     # CONTRAINTES SQL

@@ -251,6 +251,7 @@ class AssociationMember(models.Model):
     function_id = fields.Many2one(
         "association.member.function",
         string="Fonction",
+        default=lambda self: self._default_member_function(),
         tracking=True,
         ondelete="restrict",
         index=True,
@@ -261,6 +262,21 @@ class AssociationMember(models.Model):
         string="Bureau exécutif",
         ondelete="set null",
     )
+
+    @api.model
+    def _default_member_function(self):
+        """Return the ordinary Member function for the current company."""
+        function = self.env["association.member.function"].search(
+            [
+                ("name", "=ilike", "Membre"),
+                ("company_id", "=", self.env.company.id),
+            ],
+            limit=1,
+        )
+        return function or self.env.ref(
+            "primetech_association.member_function_member",
+            raise_if_not_found=False,
+        )
 
     state = fields.Selection(
         selection=[
