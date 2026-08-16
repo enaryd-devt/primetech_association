@@ -265,22 +265,27 @@ class AssociationCommittee(models.Model):
             return
 
         today = fields.Date.context_today(self)
-        CommitteeLine = self.env["association.committee.line"]
         for member in members:
-            current_line = CommitteeLine.search(
+            # Odoo cannot order a model search by a dotted relational field
+            # (``committee_id.start_date``).  Select the current committee
+            # directly so that its native date ordering remains valid.
+            current_committee = self.search(
                 [
-                    ("member_id", "=", member.id),
-                    ("committee_id.state", "=", "running"),
-                    ("committee_id.start_date", "<=", today),
-                    ("committee_id.end_date", ">=", today),
+                    ("member_line_ids.member_id", "=", member.id),
+                    ("state", "=", "running"),
+                    ("start_date", "<=", today),
+                    ("end_date", ">=", today),
                 ],
-                order="committee_id.start_date desc, id desc",
+                order="start_date desc, id desc",
                 limit=1,
             )
-            if current_line:
+            current_line = current_committee.member_line_ids.filtered(
+                lambda line: line.member_id == member
+            )[:1]
+            if current_committee and current_line:
                 member.write({
                     "function_id": current_line.function_id.id,
-                    "committee_id": current_line.committee_id.id,
+                    "committee_id": current_committee.id,
                 })
             else:
                 default_function = member.with_company(
