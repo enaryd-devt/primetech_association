@@ -471,10 +471,18 @@ class AssociationPayment(models.Model):
                         "le supplément de pénalité."
                     ) % {"subscription": subscription.display_name})
                 if supplement:
-                    amounts_by_account[account] = (
-                        amounts_by_account.get(account, 0.0) + supplement
+                    details = amounts_by_account.setdefault(account, {
+                        "amount": 0.0,
+                        "subscriptions": self.env["association.subscription"],
+                        "periods": self.env["association.subscription.period"],
+                    })
+                    details["amount"] += supplement
+                    details["subscriptions"] |= subscription
+                    details["periods"] |= (
+                        line.subscription_period_id
+                        or payment.subscription_period_id
                     )
-            for account, amount in amounts_by_account.items():
+            for account, details in amounts_by_account.items():
                 existing = Transaction.search([
                     ("origin_model", "=", "association.payment.penalty"),
                     ("origin_res_id", "=", payment.id),
@@ -483,15 +491,25 @@ class AssociationPayment(models.Model):
                 ], limit=1)
                 if existing:
                     continue
+                subscription_names = ", ".join(
+                    details["subscriptions"].mapped("display_name")
+                )
+                period_names = ", ".join(
+                    details["periods"].mapped("display_name")
+                )
                 transaction = Transaction.create({
                     "fund_id": account.id,
                     "transaction_type": "in",
-                    "amount": amount,
+                    "amount": details["amount"],
                     "transaction_date": payment.payment_date,
                     "description": _(
-                        "Pénalité encaissée - %(member)s - %(payment)s"
+                        "Pénalité encaissée - Membre : %(member)s - "
+                        "Cotisation : %(subscription)s - Cycle : %(period)s - "
+                        "Paiement : %(payment)s"
                     ) % {
                         "member": payment.member_id.display_name,
+                        "subscription": subscription_names,
+                        "period": period_names,
                         "payment": payment.name,
                     },
                     "company_id": payment.company_id.id,

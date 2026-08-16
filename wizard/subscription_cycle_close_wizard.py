@@ -384,9 +384,13 @@ class AssociationSubscriptionCycleCloseWizard(
 
             "description":
                 _(
-                    "Approvisionnement cagnotte - %(cycle)s"
+                    "Approvisionnement cotisation - %(subscription)s - "
+                    "%(cycle)s"
                 )
                 % {
+                    "subscription":
+                        self.subscription_id.display_name,
+
                     "cycle":
                         self.period_id.display_name,
                 },
