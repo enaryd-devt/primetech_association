@@ -111,6 +111,7 @@
                 <field
                     name="image_128"
                     widget="image"
+                    class="association_member_list_avatar"
                     string="Photo"
                     optional="show"
                     options="{
@@ -304,14 +305,11 @@
 
                     <div class="oe_button_box" name="button_box">
 
-                    <div class="oe_stat_button">
-
-                        <div class="o_field_widget o_stat_info">
-                            <button
-                                name="action_view_member_account_transactions"
-                                type="object"
-                                class="oe_stat_button"
-                                icon="fa-exchange">
+                        <button
+                            name="action_view_member_account_transactions"
+                            type="object"
+                            class="oe_stat_button"
+                            icon="fa-exchange">
 
                                 <div class="o_field_widget o_stat_info">
 
@@ -332,11 +330,7 @@
 
                                 </div>
 
-                            </button>
-
-                        </div>
-
-                    </div>
+                        </button>
                         <button
                             class="oe_stat_button"
                             icon="fa-credit-card"
@@ -513,7 +507,7 @@
                                 <field
                                     name="image_1920"
                                     widget="image"
-                                    class="oe_avatar"
+                                    class="oe_avatar association_member_form_avatar"
                                     options="{
                                         'preview_image': 'image_128',
                                         'size': [160, 160]
