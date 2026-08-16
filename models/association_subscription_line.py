@@ -307,21 +307,13 @@ class AssociationSubscriptionLine(models.Model):
         "payment_line_ids.payment_id.state",
         "payment_line_ids.payment_id.payment_date",
         "payment_line_ids.payment_id.subscription_period_id",
+        "payment_line_ids.subscription_period_id",
     )
     def _compute_current_cycle_payment(self):
 
         PaymentLine = self.env[
             "association.payment.line"
         ]
-
-        Payment = self.env[
-            "association.payment"
-        ]
-
-        has_subscription_period = (
-            "subscription_period_id"
-            in Payment._fields
-        )
 
         for record in self:
 
@@ -402,32 +394,13 @@ class AssociationSubscriptionLine(models.Model):
             # FILTRAGE PAR CYCLE RÉEL
             # ======================================================
 
-            if has_subscription_period:
-
-                domain.append(
-                    (
-                        "payment_id.subscription_period_id",
-                        "=",
-                        period.id,
-                    )
-                )
-
-            else:
-
-                domain.extend(
-                    [
-                        (
-                            "payment_id.payment_date",
-                            ">=",
-                            period.period_start_date,
-                        ),
-                        (
-                            "payment_id.payment_date",
-                            "<=",
-                            period.period_end_date,
-                        ),
-                    ]
-                )
+            domain += [
+                "|",
+                ("subscription_period_id", "=", period.id),
+                "&",
+                ("subscription_period_id", "=", False),
+                ("payment_id.subscription_period_id", "=", period.id),
+            ]
 
             # ======================================================
             # RECHERCHE DIRECTE
@@ -1213,6 +1186,9 @@ class AssociationSubscriptionLine(models.Model):
 
                             "subscription_id":
                                 self.subscription_id.id,
+
+                            "subscription_period_id":
+                                period.id,
 
                             "amount_paid":
                                 amount_to_pay,

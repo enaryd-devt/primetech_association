@@ -1690,9 +1690,7 @@ class AssociationPayment(models.Model):
                     subscription_line.subscription_id
                 )
 
-                period = (
-                    subscription.current_period_id
-                )
+                period = line.subscription_period_id
 
                 # ==================================================
                 # CONTRÔLE DU CYCLE
@@ -1748,6 +1746,7 @@ class AssociationPayment(models.Model):
                             and
                             payment_line.payment_id.id
                             != record.id
+                            and payment_line.subscription_period_id == period
                             and
                             payment_line.payment_id.payment_date
                             and
