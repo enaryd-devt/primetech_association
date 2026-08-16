@@ -249,6 +249,54 @@ class AssociationMeeting(models.Model):
             if meeting.secretary_id not in eligible:
                 meeting.secretary_id = False
 
+            meeting._onchange_add_committee_attendances()
+
+    def _committee_attendance_member_values(self):
+        self.ensure_one()
+        if self.committee_mode != "official" or not self.committee_id:
+            return []
+        members = self.committee_id.member_line_ids.sorted(
+            key=lambda line: (line.sequence, line.id)
+        ).mapped("member_id").filtered(
+            lambda member: member.active and member.company_id == self.company_id
+        )
+        start_sequence = max(self.attendance_ids.mapped("sequence"), default=0) + 1
+        return [
+            {
+                "member_id": member.id,
+                "sequence": start_sequence + index,
+                "invited": True,
+                "state": "pending",
+            }
+            for index, member in enumerate(members)
+        ]
+
+    def _onchange_add_committee_attendances(self):
+        """Display selected executive committee members in the roll call."""
+        Attendance = self.env["association.attendance"]
+        for meeting in self:
+            existing_ids = set(meeting.attendance_ids.mapped("member_id").ids)
+            new_lines = Attendance.browse()
+            for values in meeting._committee_attendance_member_values():
+                if values["member_id"] not in existing_ids:
+                    new_lines += Attendance.new(values)
+                    existing_ids.add(values["member_id"])
+            meeting.attendance_ids += new_lines
+
+    def _sync_committee_attendances(self):
+        """Persist missing executive committee members without duplicates."""
+        Attendance = self.env["association.attendance"]
+        for meeting in self.filtered("committee_id"):
+            existing_ids = set(meeting.attendance_ids.mapped("member_id").ids)
+            values_list = [
+                {"meeting_id": meeting.id, **values}
+                for values in meeting._committee_attendance_member_values()
+                if values["member_id"] not in existing_ids
+            ]
+            if values_list:
+                Attendance.create(values_list)
+        return True
+
     @api.constrains(
         "committee_mode", "committee_id", "special_officer_ids",
         "chairperson_id", "secretary_id", "meeting_date", "state",
@@ -327,8 +375,41 @@ class AssociationMeeting(models.Model):
 
     agenda = fields.Html(
         string="Ordre du jour",
-       
+        default=lambda self: self._default_agenda_template(),
     )
+
+    can_edit_agenda = fields.Boolean(
+        string="Peut modifier l'ordre du jour",
+        compute="_compute_can_edit_agenda",
+    )
+
+    @api.model
+    def _default_agenda_template(self):
+        return _(
+            "<ol>"
+            "<li>Ouverture de la séance et mot de bienvenue</li>"
+            "<li>Vérification des présences et du quorum</li>"
+            "<li>Lecture et adoption de l'ordre du jour</li>"
+            "<li>Lecture et adoption du procès-verbal précédent</li>"
+            "<li>Point sur les cotisations et la situation financière</li>"
+            "<li>Examen des points inscrits et décisions</li>"
+            "<li>Divers</li>"
+            "<li>Clôture de la séance</li>"
+            "</ol>"
+        )
+
+    @api.depends_context("uid")
+    def _compute_can_edit_agenda(self):
+        can_edit = (
+            self.env.user.has_group(
+                "primetech_association.group_association_meeting_secretary"
+            )
+            or self.env.user.has_group(
+                "primetech_association.group_association_admin"
+            )
+        )
+        for meeting in self:
+            meeting.can_edit_agenda = can_edit
 
     # ==========================================================
     # PRÉSENCES
@@ -937,6 +1018,7 @@ class AssociationMeeting(models.Model):
             )
             if session:
                 meeting.subscription_period_id = session.period_id.id
+                meeting._sync_subscription_attendances()
                 return {"type": "ir.actions.client", "tag": "reload"}
 
             # ==================================================
@@ -979,6 +1061,7 @@ class AssociationMeeting(models.Model):
             # ==================================================
 
             meeting.subscription_period_id = period.id
+            meeting._sync_subscription_attendances()
             self.env["association.meeting.subscription.session"].create({
                 "meeting_id": meeting.id,
                 "subscription_id": meeting.subscription_id.id,
@@ -1547,6 +1630,7 @@ class AssociationMeeting(models.Model):
             meeting.subscription_period_id = False
 
             if not meeting.subscription_id:
+                meeting.attendance_ids = [(5, 0, 0)]
                 continue
 
             session = meeting._get_subscription_session_for_subscription(
@@ -1555,6 +1639,47 @@ class AssociationMeeting(models.Model):
             meeting.subscription_period_id = (
                 session.period_id if session else meeting.subscription_id.current_period_id
             )
+            meeting._onchange_load_subscription_attendances()
+
+    def _attendance_member_values(self):
+        self.ensure_one()
+        members = self.subscription_id.line_ids.mapped("member_id").filtered(
+            lambda member: member.active and member.company_id == self.company_id
+        )
+        return [
+            {
+                "member_id": member.id,
+                "sequence": sequence,
+                "invited": True,
+                "state": "pending",
+            }
+            for sequence, member in enumerate(members, start=1)
+        ]
+
+    def _onchange_load_subscription_attendances(self):
+        """Immediately display the selected subscription's roll call."""
+        for meeting in self:
+            meeting.attendance_ids = [
+                (5, 0, 0),
+                *(
+                    (0, 0, values)
+                    for values in meeting._attendance_member_values()
+                ),
+            ] if meeting.subscription_id else [(5, 0, 0)]
+
+    def _sync_subscription_attendances(self):
+        """Persist missing roll-call rows without duplicating existing ones."""
+        Attendance = self.env["association.attendance"]
+        for meeting in self.filtered("subscription_id"):
+            existing_ids = set(meeting.attendance_ids.mapped("member_id").ids)
+            values_list = [
+                {"meeting_id": meeting.id, **values}
+                for values in meeting._attendance_member_values()
+                if values["member_id"] not in existing_ids
+            ]
+            if values_list:
+                Attendance.create(values_list)
+        return True
 
     def _get_subscription_session_for_subscription(self, subscription):
         """Return the session cycle that must be loaded for a subscription."""
@@ -2819,6 +2944,8 @@ class AssociationMeeting(models.Model):
                     "subscription_id": meeting.subscription_id.id,
                     "period_id": period.id,
                 })
+            meeting._sync_subscription_attendances()
+        meetings._sync_committee_attendances()
         return meetings
 
     # ==========================================================
@@ -3516,6 +3643,11 @@ class AssociationMeeting(models.Model):
                         "subscription_id": meeting.subscription_id.id,
                         "period_id": period.id,
                     })
+
+            self._sync_subscription_attendances()
+
+        if "committee_id" in vals or "committee_mode" in vals:
+            self._sync_committee_attendances()
 
         return result
     

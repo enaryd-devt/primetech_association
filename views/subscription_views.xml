@@ -1017,6 +1017,11 @@
                                         string="Délai de grâce"/>
 
                                     <field
+                                        name="penalty_account_id"
+                                        string="Compte des pénalités"
+                                        options="{'no_create': True, 'no_create_edit': True}"/>
+
+                                    <field
                                         name="penalty_type"
                                         string="Mode de calcul"/>
 
@@ -1110,6 +1115,13 @@
                                     <field
                                         name="category_id"
                                         string="Catégorie"
+                                        optional="show"/>
+
+                                    <field
+                                        name="penalty_grace_days_remaining"
+                                        string="Grâce restante"
+                                        readonly="1"
+                                        column_invisible="not parent.penalty_enabled"
                                         optional="show"/>
 
                                     <field
@@ -1370,6 +1382,7 @@
                                     <field name="period_end_date" string="Fin"/>
                                     <field name="due_date" string="Échéance"/>
                                     <field name="penalty_deadline" string="Date limite avant pénalité" readonly="1" column_invisible="not parent.penalty_enabled" optional="show"/>
+                                    <field name="penalty_grace_days_remaining" string="Grâce restante" readonly="1" column_invisible="not parent.penalty_enabled" optional="show"/>
                                     <field name="member_count" string="Membres" readonly="1" optional="show"/>
                                     <field name="paid_member_count" string="Payés" readonly="1" optional="show"/>
                                     <field name="partial_member_count" string="Partiels" readonly="1" optional="show"/>
