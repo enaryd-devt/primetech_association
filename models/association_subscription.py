@@ -279,8 +279,9 @@ class AssociationSubscription(models.Model):
         string="Délai de grâce (jours)",
         default=0,
         help=(
-            "Nombre de jours accordés après la date "
-            "d'échéance avant l'application de la pénalité."
+            "Nombre de jours accordés après l'échéance du cycle. "
+            "À 0, la pénalité est immédiate. À 2, elle est appliquée "
+            "le jour où le compteur calculé depuis l'échéance atteint 0."
         ),
     )
 
@@ -302,6 +303,15 @@ class AssociationSubscription(models.Model):
     penalty_rate = fields.Float(
         string="Taux de pénalité (%)",
         default=0.0,
+    )
+
+    penalty_account_id = fields.Many2one(
+        comodel_name="association.fund",
+        string="Compte dédié aux pénalités",
+        domain="[('company_id', '=', company_id), ('active', '=', True)]",
+        tracking=True,
+        copy=False,
+        help="Compte financier qui reçoit uniquement les suppléments encaissés au titre des pénalités.",
     )
 
     # ==========================================================
@@ -367,6 +377,95 @@ class AssociationSubscription(models.Model):
                         "être négatif."
                     )
                 )
+
+    def _refresh_penalty_lines(self):
+        """Synchronize member rows immediately with the penalty definition."""
+        today = fields.Date.context_today(self)
+        for subscription in self:
+            lines = subscription.line_ids
+            lines.write({
+                "penalty_amount": 0.0,
+                "penalty_applied": False,
+                "penalty_date": False,
+                "penalty_reason": False,
+            })
+            lines._compute_penalty_deadline()
+            # Recompute the base balance without the previous penalty before
+            # deciding whether each member is paid, partial or still due.
+            lines._compute_current_cycle_payment()
+            if not subscription.penalty_enabled:
+                continue
+            due_lines = lines.filtered(
+                lambda line: line.payment_state != "paid"
+                and line.penalty_deadline
+                and (
+                    subscription.penalty_grace_days == 0
+                    or line.penalty_deadline <= today
+                )
+            )
+            due_lines._apply_late_penalty(
+                force=subscription.penalty_grace_days == 0
+            )
+            lines._compute_penalty_grace_days_remaining()
+        return True
+
+    @api.onchange(
+        "penalty_enabled",
+        "penalty_grace_days",
+        "penalty_type",
+        "penalty_amount",
+        "penalty_rate",
+    )
+    def _onchange_penalty_configuration(self):
+        """Refresh the embedded member table before the form is saved."""
+        today = fields.Date.context_today(self)
+        for subscription in self:
+            for line in subscription.line_ids:
+                line.penalty_amount = 0.0
+                line.penalty_applied = False
+                line.penalty_date = False
+                line.penalty_reason = False
+                line._compute_penalty_deadline()
+                line._compute_current_cycle_payment()
+                is_due = (
+                    subscription.penalty_enabled
+                    and line.payment_state != "paid"
+                    and line.penalty_deadline
+                    and (
+                        subscription.penalty_grace_days == 0
+                        or line.penalty_deadline <= today
+                    )
+                )
+                if is_due:
+                    base_amount = subscription.amount or 0.0
+                    outstanding = min(max(line.balance or 0.0, 0.0), base_amount)
+                    if subscription.penalty_type == "fixed":
+                        line.penalty_amount = (
+                            (subscription.penalty_amount or 0.0)
+                            * outstanding / base_amount
+                            if base_amount else 0.0
+                        )
+                    else:
+                        line.penalty_amount = (
+                            outstanding * (subscription.penalty_rate or 0.0) / 100.0
+                        )
+                    line.penalty_applied = line.penalty_amount > 0
+                    line.penalty_date = today if line.penalty_applied else False
+                line._compute_current_cycle_payment()
+                line._compute_penalty_grace_days_remaining()
+
+    def write(self, vals):
+        penalty_fields = {
+            "penalty_enabled",
+            "penalty_grace_days",
+            "penalty_type",
+            "penalty_amount",
+            "penalty_rate",
+        }
+        result = super().write(vals)
+        if penalty_fields.intersection(vals):
+            self._refresh_penalty_lines()
+        return result
 
     # ==========================================================
     # CONTRAINTES SQL

@@ -162,6 +162,12 @@ class AssociationMeeting(models.Model):
         string="Responsables disponibles",
     )
 
+    official_committee_line_ids = fields.Many2many(
+        comodel_name="association.committee.line",
+        string="Composition du bureau mandaté",
+        compute="_compute_official_committee_line_ids",
+    )
+
     chairperson_id = fields.Many2one(
         comodel_name="association.member",
         string="Président de séance",
@@ -178,6 +184,22 @@ class AssociationMeeting(models.Model):
         domain="[('company_id', '=', company_id)]",
     )
 
+    special_treasurer_id = fields.Many2one(
+        comodel_name="association.member",
+        string="Trésorier de séance",
+        ondelete="restrict",
+        tracking=True,
+        domain="[('id', 'in', eligible_officer_ids)]",
+    )
+
+    special_censor_id = fields.Many2one(
+        comodel_name="association.member",
+        string="Censeur de séance",
+        ondelete="restrict",
+        tracking=True,
+        domain="[('id', 'in', eligible_officer_ids)]",
+    )
+
     @api.depends(
         "committee_mode",
         "committee_id.member_line_ids.member_id",
@@ -191,8 +213,26 @@ class AssociationMeeting(models.Model):
                 )
             else:
                 meeting.eligible_officer_ids = (
-                    meeting.special_officer_ids.mapped("member_id")
+                    self.env["association.member"].search([
+                        ("company_id", "=", meeting.company_id.id),
+                        ("state", "=", "active"),
+                        ("active", "=", True),
+                    ])
                 )
+
+    @api.depends(
+        "committee_mode",
+        "committee_id",
+        "committee_id.member_line_ids",
+        "committee_id.member_line_ids.function_id",
+    )
+    def _compute_official_committee_line_ids(self):
+        for meeting in self:
+            meeting.official_committee_line_ids = (
+                meeting.committee_id.member_line_ids
+                if meeting.committee_mode == "official"
+                else False
+            )
 
     @api.depends("company_id", "meeting_date")
     def _compute_available_committee_ids(self):
@@ -208,38 +248,17 @@ class AssociationMeeting(models.Model):
                 ("end_date", ">=", meeting_date),
             ])
 
-    @api.onchange("committee_mode", "committee_id", "special_officer_ids")
+    @api.onchange(
+        "committee_mode", "committee_id", "special_officer_ids",
+        "chairperson_id", "secretary_id", "special_treasurer_id",
+        "special_censor_id",
+    )
     def _onchange_meeting_committee(self):
         for meeting in self:
             if meeting.committee_mode == "official" and meeting.committee_id:
-                lines = meeting.committee_id.member_line_ids.sorted(
-                    key=lambda line: (line.sequence, line.id)
+                chairperson, secretary = meeting._get_official_responsibles(
+                    meeting.committee_id
                 )
-
-                def member_for_role(keywords):
-                    candidate = lines.filtered(
-                        lambda line: any(
-                            keyword in (line.function_id.name or "").lower()
-                            for keyword in keywords
-                        )
-                    )[:1]
-                    return candidate.member_id if candidate else False
-
-                chairperson = member_for_role(["président", "president"])
-                secretary = member_for_role(["secrétaire", "secretaire"])
-
-                if not chairperson and lines:
-                    chairperson = lines[0].member_id
-                if not secretary:
-                    secretary = next(
-                        (
-                            line.member_id
-                            for line in lines
-                            if line.member_id != chairperson
-                        ),
-                        False,
-                    )
-
                 meeting.chairperson_id = chairperson
                 meeting.secretary_id = secretary
 
@@ -248,10 +267,152 @@ class AssociationMeeting(models.Model):
                 meeting.chairperson_id = False
             if meeting.secretary_id not in eligible:
                 meeting.secretary_id = False
+            if meeting.special_treasurer_id not in eligible:
+                meeting.special_treasurer_id = False
+            if meeting.special_censor_id not in eligible:
+                meeting.special_censor_id = False
+
+            meeting._refresh_responsible_attendances_onchange()
+
+    def _get_official_responsibles(self, committee):
+        """Return the mandated chairperson and secretary for a committee."""
+        lines = committee.member_line_ids.sorted(
+            key=lambda line: (line.sequence, line.id)
+        )
+
+        def member_for_role(keywords):
+            candidate = lines.filtered(
+                lambda line: any(
+                    keyword in (line.function_id.name or "").lower()
+                    for keyword in keywords
+                )
+            )[:1]
+            return candidate.member_id if candidate else False
+
+        chairperson = member_for_role(["président", "president"])
+        secretary = member_for_role(["secrétaire", "secretaire"])
+        if not chairperson and lines:
+            chairperson = lines[0].member_id
+        if not secretary:
+            secretary = next(
+                (line.member_id for line in lines if line.member_id != chairperson),
+                chairperson,
+            )
+        return chairperson, secretary
+
+    def _refresh_responsible_attendances_onchange(self):
+        """Refresh roll-call rows for the selected office mode.
+
+        Keeping both calls in a dedicated class method also prevents an
+        attendance call from accidentally being left outside the onchange
+        block when this section is extended or merged.
+        """
+        for meeting in self:
+            if meeting.committee_mode == "official":
+                meeting._onchange_add_committee_attendances()
+            else:
+                meeting._onchange_add_special_responsible_attendances()
+
+    def _onchange_add_special_responsible_attendances(self):
+        Attendance = self.env["association.attendance"]
+        for meeting in self.filtered(lambda item: item.committee_mode == "special"):
+            existing_ids = set(meeting.attendance_ids.mapped("member_id").ids)
+            selected = (
+                meeting.chairperson_id
+                | meeting.secretary_id
+                | meeting.special_treasurer_id
+                | meeting.special_censor_id
+            )
+            new_lines = Attendance.browse()
+            sequence = max(meeting.attendance_ids.mapped("sequence"), default=0) + 1
+            for member in selected:
+                if member.id not in existing_ids:
+                    new_lines += Attendance.new({
+                        "member_id": member.id,
+                        "sequence": sequence,
+                        "invited": True,
+                        "state": "pending",
+                    })
+                    existing_ids.add(member.id)
+                    sequence += 1
+            meeting.attendance_ids += new_lines
+
+    def _sync_special_responsible_attendances(self):
+        Attendance = self.env["association.attendance"]
+        for meeting in self.filtered(lambda item: item.committee_mode == "special"):
+            existing_ids = set(meeting.attendance_ids.mapped("member_id").ids)
+            sequence = max(meeting.attendance_ids.mapped("sequence"), default=0) + 1
+            values_list = []
+            for member in (
+                meeting.chairperson_id
+                | meeting.secretary_id
+                | meeting.special_treasurer_id
+                | meeting.special_censor_id
+            ):
+                if member.id not in existing_ids:
+                    values_list.append({
+                        "meeting_id": meeting.id,
+                        "member_id": member.id,
+                        "sequence": sequence,
+                        "invited": True,
+                        "state": "pending",
+                    })
+                    existing_ids.add(member.id)
+                    sequence += 1
+            if values_list:
+                Attendance.create(values_list)
+        return True
+
+    def _committee_attendance_member_values(self):
+        self.ensure_one()
+        if self.committee_mode != "official" or not self.committee_id:
+            return []
+        members = self.committee_id.member_line_ids.sorted(
+            key=lambda line: (line.sequence, line.id)
+        ).mapped("member_id").filtered(
+            lambda member: member.active and member.company_id == self.company_id
+        )
+        start_sequence = max(self.attendance_ids.mapped("sequence"), default=0) + 1
+        return [
+            {
+                "member_id": member.id,
+                "sequence": start_sequence + index,
+                "invited": True,
+                "state": "pending",
+            }
+            for index, member in enumerate(members)
+        ]
+
+    def _onchange_add_committee_attendances(self):
+        """Display selected executive committee members in the roll call."""
+        Attendance = self.env["association.attendance"]
+        for meeting in self:
+            existing_ids = set(meeting.attendance_ids.mapped("member_id").ids)
+            new_lines = Attendance.browse()
+            for values in meeting._committee_attendance_member_values():
+                if values["member_id"] not in existing_ids:
+                    new_lines += Attendance.new(values)
+                    existing_ids.add(values["member_id"])
+            meeting.attendance_ids += new_lines
+
+    def _sync_committee_attendances(self):
+        """Persist missing executive committee members without duplicates."""
+        Attendance = self.env["association.attendance"]
+        for meeting in self.filtered("committee_id"):
+            existing_ids = set(meeting.attendance_ids.mapped("member_id").ids)
+            values_list = [
+                {"meeting_id": meeting.id, **values}
+                for values in meeting._committee_attendance_member_values()
+                if values["member_id"] not in existing_ids
+            ]
+            if values_list:
+                Attendance.create(values_list)
+        return True
 
     @api.constrains(
         "committee_mode", "committee_id", "special_officer_ids",
-        "chairperson_id", "secretary_id", "meeting_date", "state",
+        "chairperson_id", "secretary_id", "special_treasurer_id",
+        "special_censor_id", "meeting_date", "state",
     )
     def _check_meeting_committee(self):
         for meeting in self:
@@ -272,22 +433,37 @@ class AssociationMeeting(models.Model):
                         "exécutif sélectionné."
                     ))
             elif meeting.committee_mode == "special":
-                roles = set(meeting.special_officer_ids.mapped("role"))
-                if meeting.state != "draft" and not {
-                    "chairperson", "secretary"
-                }.issubset(roles):
-                    raise ValidationError(_(
-                        "Le bureau spécial doit comporter un président "
-                        "et un secrétaire de séance."
-                    ))
+                # In special mode the chairperson and secretary may be any
+                # active member of the company; adding duplicate officer
+                # rows is therefore optional.
+                pass
             if meeting.state != "draft":
                 if not meeting.chairperson_id or not meeting.secretary_id:
                     raise ValidationError(_(
                         "Définissez le président et le secrétaire de séance."
                     ))
-                if (
-                    meeting.chairperson_id not in meeting.eligible_officer_ids
-                    or meeting.secretary_id not in meeting.eligible_officer_ids
+            if meeting.committee_mode == "special":
+                responsible_ids = [
+                    member.id for member in (
+                        meeting.chairperson_id,
+                        meeting.secretary_id,
+                        meeting.special_treasurer_id,
+                        meeting.special_censor_id,
+                    ) if member
+                ]
+                if len(responsible_ids) != len(set(responsible_ids)):
+                    raise ValidationError(_(
+                        "Chaque responsabilité du bureau spécial doit être "
+                        "attribuée à un membre différent."
+                    ))
+                if any(
+                    member and member not in meeting.eligible_officer_ids
+                    for member in (
+                        meeting.chairperson_id,
+                        meeting.secretary_id,
+                        meeting.special_treasurer_id,
+                        meeting.special_censor_id,
+                    )
                 ):
                     raise ValidationError(_(
                         "Les responsables de séance doivent appartenir au "
@@ -327,8 +503,41 @@ class AssociationMeeting(models.Model):
 
     agenda = fields.Html(
         string="Ordre du jour",
-       
+        default=lambda self: self._default_agenda_template(),
     )
+
+    can_edit_agenda = fields.Boolean(
+        string="Peut modifier l'ordre du jour",
+        compute="_compute_can_edit_agenda",
+    )
+
+    @api.model
+    def _default_agenda_template(self):
+        return _(
+            "<ol>"
+            "<li>Ouverture de la séance et mot de bienvenue</li>"
+            "<li>Vérification des présences et du quorum</li>"
+            "<li>Lecture et adoption de l'ordre du jour</li>"
+            "<li>Lecture et adoption du procès-verbal précédent</li>"
+            "<li>Point sur les cotisations et la situation financière</li>"
+            "<li>Examen des points inscrits et décisions</li>"
+            "<li>Divers</li>"
+            "<li>Clôture de la séance</li>"
+            "</ol>"
+        )
+
+    @api.depends_context("uid")
+    def _compute_can_edit_agenda(self):
+        can_edit = (
+            self.env.user.has_group(
+                "primetech_association.group_association_meeting_secretary"
+            )
+            or self.env.user.has_group(
+                "primetech_association.group_association_admin"
+            )
+        )
+        for meeting in self:
+            meeting.can_edit_agenda = can_edit
 
     # ==========================================================
     # PRÉSENCES
@@ -937,6 +1146,7 @@ class AssociationMeeting(models.Model):
             )
             if session:
                 meeting.subscription_period_id = session.period_id.id
+                meeting._sync_subscription_attendances()
                 return {"type": "ir.actions.client", "tag": "reload"}
 
             # ==================================================
@@ -979,6 +1189,7 @@ class AssociationMeeting(models.Model):
             # ==================================================
 
             meeting.subscription_period_id = period.id
+            meeting._sync_subscription_attendances()
             self.env["association.meeting.subscription.session"].create({
                 "meeting_id": meeting.id,
                 "subscription_id": meeting.subscription_id.id,
@@ -1547,6 +1758,7 @@ class AssociationMeeting(models.Model):
             meeting.subscription_period_id = False
 
             if not meeting.subscription_id:
+                meeting.attendance_ids = [(5, 0, 0)]
                 continue
 
             session = meeting._get_subscription_session_for_subscription(
@@ -1555,6 +1767,47 @@ class AssociationMeeting(models.Model):
             meeting.subscription_period_id = (
                 session.period_id if session else meeting.subscription_id.current_period_id
             )
+            meeting._onchange_load_subscription_attendances()
+
+    def _attendance_member_values(self):
+        self.ensure_one()
+        members = self.subscription_id.line_ids.mapped("member_id").filtered(
+            lambda member: member.active and member.company_id == self.company_id
+        )
+        return [
+            {
+                "member_id": member.id,
+                "sequence": sequence,
+                "invited": True,
+                "state": "pending",
+            }
+            for sequence, member in enumerate(members, start=1)
+        ]
+
+    def _onchange_load_subscription_attendances(self):
+        """Immediately display the selected subscription's roll call."""
+        for meeting in self:
+            meeting.attendance_ids = [
+                (5, 0, 0),
+                *(
+                    (0, 0, values)
+                    for values in meeting._attendance_member_values()
+                ),
+            ] if meeting.subscription_id else [(5, 0, 0)]
+
+    def _sync_subscription_attendances(self):
+        """Persist missing roll-call rows without duplicating existing ones."""
+        Attendance = self.env["association.attendance"]
+        for meeting in self.filtered("subscription_id"):
+            existing_ids = set(meeting.attendance_ids.mapped("member_id").ids)
+            values_list = [
+                {"meeting_id": meeting.id, **values}
+                for values in meeting._attendance_member_values()
+                if values["member_id"] not in existing_ids
+            ]
+            if values_list:
+                Attendance.create(values_list)
+        return True
 
     def _get_subscription_session_for_subscription(self, subscription):
         """Return the session cycle that must be loaded for a subscription."""
@@ -2799,6 +3052,19 @@ class AssociationMeeting(models.Model):
     def create(self, vals_list):
         for vals in vals_list:
 
+            if (
+                vals.get("committee_id")
+                and vals.get("committee_mode", "official") == "official"
+            ):
+                committee = self.env["association.committee"].browse(
+                    vals["committee_id"]
+                )
+                chairperson, secretary = self._get_official_responsibles(
+                    committee
+                )
+                vals["chairperson_id"] = chairperson.id
+                vals["secretary_id"] = secretary.id
+
             if vals.get("name", _("Nouveau")) == _("Nouveau"):
 
                 vals["name"] = (
@@ -2819,6 +3085,9 @@ class AssociationMeeting(models.Model):
                     "subscription_id": meeting.subscription_id.id,
                     "period_id": period.id,
                 })
+            meeting._sync_subscription_attendances()
+        meetings._sync_committee_attendances()
+        meetings._sync_special_responsible_attendances()
         return meetings
 
     # ==========================================================
@@ -3433,6 +3702,32 @@ class AssociationMeeting(models.Model):
     def write(self, vals):
 
         vals = dict(vals)
+        committee_mode = vals.get(
+            "committee_mode",
+            self[:1].committee_mode if self else "official",
+        )
+        if vals.get("committee_id") and committee_mode == "official":
+            committee = self.env["association.committee"].browse(
+                vals["committee_id"]
+            )
+            chairperson, secretary = self._get_official_responsibles(committee)
+            vals["chairperson_id"] = chairperson.id
+            vals["secretary_id"] = secretary.id
+        elif (
+            len(self) == 1
+            and committee_mode == "official"
+            and self.committee_id
+            and (
+                not self.chairperson_id
+                or not self.secretary_id
+                or "state" in vals
+            )
+        ):
+            chairperson, secretary = self._get_official_responsibles(
+                self.committee_id
+            )
+            vals["chairperson_id"] = chairperson.id
+            vals["secretary_id"] = secretary.id
         if vals.get("subscription_id"):
             subscription = self.env["association.subscription"].browse(
                 vals["subscription_id"]
@@ -3516,6 +3811,17 @@ class AssociationMeeting(models.Model):
                         "subscription_id": meeting.subscription_id.id,
                         "period_id": period.id,
                     })
+
+            self._sync_subscription_attendances()
+
+        if "committee_id" in vals or "committee_mode" in vals:
+            self._sync_committee_attendances()
+
+        if {
+            "committee_mode", "chairperson_id", "secretary_id",
+            "special_treasurer_id", "special_censor_id",
+        }.intersection(vals):
+            self._sync_special_responsible_attendances()
 
         return result
     

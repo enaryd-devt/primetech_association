@@ -47,7 +47,6 @@ Gestion financière
         # =====================================================
 
         "data/association_sequence.xml",
-        "data/member_category_data.xml",
         "data/member_function_data.xml",
         "data/bank_sequence.xml",
         "data/association_cron.xml",
@@ -85,6 +84,8 @@ Gestion financière
 
         "report/member_card_template.xml",
         "report/member_card_report.xml",
+        "report/member_directory_report.xml",
+        "report/statement_report.xml",
 
         "report/meeting_minutes_report.xml",
         "report/meeting_minutes_template.xml",
@@ -93,7 +94,6 @@ Gestion financière
         # Banque / Trésorerie
         "views/fund_transaction_views.xml",
 
-        "views/member_category_views.xml",
         "views/member_function_views.xml",
 
         "views/subscription_payment_wizard_views.xml",
@@ -112,6 +112,7 @@ Gestion financière
         # =====================================================
 
         "views/menu_views.xml",
+        "views/statement_report_wizard_views.xml",
 
         # The configuration menu is a child of menu_association_root, which
         # is defined above.  Load it after the root menu to support a clean
