@@ -135,12 +135,12 @@ export class AssociationDashboard extends Component {
     get kpis() {
         const data = this.state.data;
         return [
-            {label: "Membres actifs", value: this.formatAmount(data.members.active), icon: "fa-users", color: "purple", note: "Effectif actuel"},
-            {label: "Total membres", value: this.formatAmount(data.members.total), icon: "fa-user-plus", color: "green", note: "Base des adhérents"},
-            {label: "Cotisations collectées", value: this.formatAmount(data.payments.total), currency: true, icon: "fa-handshake-o", color: "orange", note: "Paiements confirmés"},
-            {label: "Trésorerie", value: this.formatAmount(data.treasury.balance), currency: true, icon: "fa-credit-card", color: "blue", note: "Solde disponible"},
-            {label: "Événements", value: this.formatAmount(data.meetings.upcoming), icon: "fa-calendar", color: "purple", note: "À venir"},
-            {label: "Pénalités à traiter", value: this.formatAmount(data.penalties.pending), icon: "fa-gavel", color: "red", note: "À régulariser", negative: true},
+            {label: "Membres actifs", value: this.formatAmount(data.members.active), icon: "fa-users", color: "purple", note: "Effectif actuel", action: "members"},
+            {label: "Total membres", value: this.formatAmount(data.members.total), icon: "fa-user-plus", color: "green", note: "Base des adhérents", action: "members"},
+            {label: "Cotisations collectées", value: this.formatAmount(data.payments.total), currency: true, icon: "fa-handshake-o", color: "orange", note: "Paiements confirmés", action: "payments"},
+            {label: "Trésorerie", value: this.formatAmount(data.treasury.balance), currency: true, icon: "fa-credit-card", color: "blue", note: "Solde disponible", action: "treasury"},
+            {label: "Événements", value: this.formatAmount(data.meetings.upcoming), icon: "fa-calendar", color: "purple", note: "À venir", action: "meetings"},
+            {label: "Pénalités à traiter", value: this.formatAmount(data.penalties.pending), icon: "fa-gavel", color: "red", note: "À régulariser", negative: true, action: "penalties"},
         ];
     }
 
@@ -166,6 +166,24 @@ export class AssociationDashboard extends Component {
 
         await this.action.doAction(xmlId);
 
+    }
+
+    openKpi(actionName) {
+        const actions = {
+            meetings: () => this.openMeetings(),
+            members: () => this.openMembers(),
+            payments: () => this.openPayments(),
+            penalties: () => this.openPenalties(),
+            treasury: () => this.openTreasury(),
+        };
+        return actions[actionName]?.();
+    }
+
+    onInteractiveKeydown(ev, callback) {
+        if (ev.key === "Enter" || ev.key === " ") {
+            ev.preventDefault();
+            callback();
+        }
     }
 
 
@@ -214,6 +232,12 @@ export class AssociationDashboard extends Component {
 
     }
 
+    openExpenses() {
+        return this.openAction(
+            "primetech_association.action_expense"
+        );
+    }
+
 
     openTreasury() {
 
@@ -241,6 +265,28 @@ export class AssociationDashboard extends Component {
             name: "Sanction disciplinaire",
             res_model: "association.penalty",
             res_id: penaltyId,
+            views: [[false, "form"]],
+            target: "current",
+        });
+    }
+
+    openMember(memberId) {
+        return this.openRecord("association.member", memberId, "Membre");
+    }
+
+    openPayment(paymentId) {
+        return this.openRecord("association.payment", paymentId, "Paiement");
+    }
+
+    openRecord(model, recordId, name) {
+        if (!recordId) {
+            return;
+        }
+        return this.action.doAction({
+            type: "ir.actions.act_window",
+            name,
+            res_model: model,
+            res_id: recordId,
             views: [[false, "form"]],
             target: "current",
         });
