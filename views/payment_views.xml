@@ -392,9 +392,13 @@
 
                                 <field name="eligible_subscription_ids" column_invisible="1"/>
 
+                                <field name="eligible_period_ids" column_invisible="1"/>
+
                                 <field name="subscription_line_id" column_invisible="1"/>
 
                                 <field name="subscription_id" string="Cotisation" required="1" options="{                                         'no_create': True,                                         'no_create_edit': True,                                         'no_open': True                                     }"/>
+
+                                <field name="subscription_period_id" string="Cycle disponible" required="1" options="{'no_create': True, 'no_create_edit': True, 'no_open': True}"/>
 
                                 <field name="amount_due" string="Montant dû" readonly="1"/>
 
