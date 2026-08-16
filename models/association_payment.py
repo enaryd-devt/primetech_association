@@ -442,6 +442,7 @@ class AssociationPayment(models.Model):
     def _create_penalty_fund_transactions(self):
         """Track the penalty supplement separately from subscription capital."""
         Transaction = self.env["association.fund.transaction"]
+        created_transactions = Transaction
         for payment in self:
             amounts_by_account = {}
             for line in payment.line_ids.filtered("subscription_line_id"):
@@ -470,10 +471,18 @@ class AssociationPayment(models.Model):
                         "le supplément de pénalité."
                     ) % {"subscription": subscription.display_name})
                 if supplement:
-                    amounts_by_account[account] = (
-                        amounts_by_account.get(account, 0.0) + supplement
+                    details = amounts_by_account.setdefault(account, {
+                        "amount": 0.0,
+                        "subscriptions": self.env["association.subscription"],
+                        "periods": self.env["association.subscription.period"],
+                    })
+                    details["amount"] += supplement
+                    details["subscriptions"] |= subscription
+                    details["periods"] |= (
+                        line.subscription_period_id
+                        or payment.subscription_period_id
                     )
-            for account, amount in amounts_by_account.items():
+            for account, details in amounts_by_account.items():
                 existing = Transaction.search([
                     ("origin_model", "=", "association.payment.penalty"),
                     ("origin_res_id", "=", payment.id),
@@ -482,12 +491,27 @@ class AssociationPayment(models.Model):
                 ], limit=1)
                 if existing:
                     continue
+                subscription_names = ", ".join(
+                    details["subscriptions"].mapped("display_name")
+                )
+                period_names = ", ".join(
+                    details["periods"].mapped("display_name")
+                )
                 transaction = Transaction.create({
                     "fund_id": account.id,
                     "transaction_type": "in",
-                    "amount": amount,
+                    "amount": details["amount"],
                     "transaction_date": payment.payment_date,
-                    "description": _("Pénalité encaissée - %s") % payment.name,
+                    "description": _(
+                        "Pénalité encaissée - Membre : %(member)s - "
+                        "Cotisation : %(subscription)s - Cycle : %(period)s - "
+                        "Paiement : %(payment)s"
+                    ) % {
+                        "member": payment.member_id.display_name,
+                        "subscription": subscription_names,
+                        "period": period_names,
+                        "payment": payment.name,
+                    },
                     "company_id": payment.company_id.id,
                     "payment_id": payment.id,
                     "origin_model": "association.payment.penalty",
@@ -495,7 +519,8 @@ class AssociationPayment(models.Model):
                     "origin_reference": payment.name,
                 })
                 transaction.action_validate()
-        return True
+                created_transactions |= transaction
+        return created_transactions
 
     # ==========================================================
     # SOLDE DU COMPTE MEMBRE
@@ -1998,7 +2023,7 @@ class AssociationPayment(models.Model):
                     "state": "confirmed",
                 }
             )
-            record._create_penalty_fund_transactions()
+            penalty_transactions = record._create_penalty_fund_transactions()
 
             # ======================================================
             # PAIEMENT DEPUIS LE COMPTE MEMBRE
@@ -2129,6 +2154,16 @@ class AssociationPayment(models.Model):
                         or "",
                 }
 
+            penalty_transferred = sum(penalty_transactions.mapped("amount"))
+            if penalty_transferred > 0:
+                message += _(
+                    "<br/>Pénalité automatiquement reversée sur le "
+                    "compte dédié : %(amount).2f %(currency)s"
+                ) % {
+                    "amount": penalty_transferred,
+                    "currency": record.currency_id.name or "",
+                }
+
             record.message_post(
                 body=message
             )
@@ -2149,6 +2184,15 @@ class AssociationPayment(models.Model):
             record.write({
                 "state": "cancelled",
             })
+
+            penalty_transactions = self.env[
+                "association.fund.transaction"
+            ].search([
+                ("origin_model", "=", "association.payment.penalty"),
+                ("origin_res_id", "=", record.id),
+                ("state", "!=", "cancelled"),
+            ])
+            penalty_transactions.action_cancel()
 
             record._invalidate_subscription_lines()
 
