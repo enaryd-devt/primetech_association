@@ -61,7 +61,7 @@
 
 
                             <!-- Dates -->
-                            <div style="margin: 5mm 8mm 0; padding: 2mm 0;">
+                            <div style="margin: 6mm 8mm 0; padding: 3mm 0 2mm; line-height: 1.35;">
                                 <div style="display: inline-block; width: 48%; vertical-align: top;">
                                     <div style="font-size: 7pt; font-weight: 700; letter-spacing: .8px; color: #64748b; text-transform: uppercase;">Émise le</div>
                                     <div style="margin-top: 1.5mm; font-size: 10pt; font-weight: 700; color: #1e293b;"><span t-field="card.issue_date"/></div>
@@ -73,7 +73,7 @@
                             </div>
 
                             <!-- Pied -->
-                            <div style="position: absolute; right: 8mm; bottom: 6mm; left: 8mm; padding-top: 2.5mm; text-align: center;">
+                            <div style="position: absolute; right: 8mm; bottom: 4.5mm; left: 8mm; padding-top: 3.5mm; text-align: center;">
                                 <div style="font-size: 7pt; font-weight: 700; letter-spacing: .7px; color: #0f766e; text-transform: uppercase;">Membre <span style="color: #94a3b8;">•</span> <span t-field="card.state"/></div>
                                 <div style="margin-top: 1.5mm; font-size: 6.5pt; line-height: 1.35; color: #94a3b8;">Carte personnelle et non cessible. À présenter pour toute identification.</div>
                             </div>

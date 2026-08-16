@@ -1309,6 +1309,11 @@ class AssociationMember(models.Model):
             "primetech_association.action_member_card_report"
         ).report_action(self)
 
+    def action_print_member_directory(self):
+        return self.env.ref(
+            "primetech_association.action_report_member_directory"
+        ).report_action(self)
+
     # ==========================================================
     # MEMBER STATE ACTIONS
     # ==========================================================

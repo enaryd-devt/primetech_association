@@ -79,8 +79,6 @@
 
                 <field name="member_id" string="Membre"/>
 
-                <field name="category_id" optional="hide"/>
-
                 <field name="payment_method" widget="badge"/>
 
                 <field name="payment_reference" optional="show"/>
@@ -503,8 +501,6 @@
                             <group>
 
                                 <group string="Membre">
-
-                                    <field name="category_id" readonly="1"/>
 
                                     <field name="function_id" readonly="1"/>
 

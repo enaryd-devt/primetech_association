@@ -148,19 +148,31 @@ class AssociationPayment(models.Model):
     )
 
     payment_method = fields.Selection(
-        selection=[
-            ("cash", "Espèces"),
-            ("bank", "Virement bancaire"),
-            ("cheque", "Chèque"),
-            ("mobile_money", "Mobile Money"),
-            ("other", "Autre"),
-        ],
+        selection="_get_payment_method_selection",
         string="Mode de paiement",
         required=True,
         default="cash",
         tracking=True,
         index=True,
     )
+
+    @api.model
+    def _get_payment_method_selection(self):
+        parameters = self.env["ir.config_parameter"].sudo()
+        methods = [
+            ("cash", _("Espèces")),
+            ("bank", _("Virement bancaire")),
+            ("cheque", _("Chèque")),
+            ("mobile_money", _("Mobile Money")),
+            ("other", _("Autre")),
+        ]
+        return [
+            (code, label)
+            for code, label in methods
+            if str(parameters.get_param(
+                f"primetech_association.payment_method_{code}", "True"
+            )).lower() not in ("false", "0")
+        ] or [("cash", _("Espèces"))]
 
     payment_reference = fields.Char(
         string="Référence externe",

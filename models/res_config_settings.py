@@ -95,6 +95,26 @@ class ResConfigSettings(models.TransientModel):
         string="Préfixe des références de paiement", default="PAY",
         config_parameter="primetech_association.payment_reference_prefix",
     )
+    payment_method_cash = fields.Boolean(
+        string="Espèces", default=True,
+        config_parameter="primetech_association.payment_method_cash",
+    )
+    payment_method_bank = fields.Boolean(
+        string="Virement bancaire", default=True,
+        config_parameter="primetech_association.payment_method_bank",
+    )
+    payment_method_cheque = fields.Boolean(
+        string="Chèque", default=True,
+        config_parameter="primetech_association.payment_method_cheque",
+    )
+    payment_method_mobile_money = fields.Boolean(
+        string="Mobile Money", default=True,
+        config_parameter="primetech_association.payment_method_mobile_money",
+    )
+    payment_method_other = fields.Boolean(
+        string="Autre", default=True,
+        config_parameter="primetech_association.payment_method_other",
+    )
     report_footer = fields.Char(
         string="Pied de page des rapports",
         config_parameter="primetech_association.report_footer",

@@ -1113,8 +1113,10 @@
                                         string="Membre"/>
 
                                     <field
-                                        name="category_id"
-                                        string="Catégorie"
+                                        name="penalty_grace_days_remaining"
+                                        string="Grâce restante"
+                                        readonly="1"
+                                        column_invisible="not parent.penalty_enabled"
                                         optional="show"/>
 
                                     <field

@@ -72,6 +72,18 @@
                             <field name="report_footer" placeholder="Mention à afficher sur les rapports PDF..."/>
                         </setting>
                     </block>
+                    <block title="Modes de paiement" name="association_payment_methods">
+                        <setting string="Modes proposés dans les encaissements"
+                                 help="Activez uniquement les moyens de paiement acceptés par l'association.">
+                            <div class="content-group">
+                                <field name="payment_method_cash"/><label for="payment_method_cash" class="me-3"/>
+                                <field name="payment_method_bank"/><label for="payment_method_bank" class="me-3"/>
+                                <field name="payment_method_cheque"/><label for="payment_method_cheque" class="me-3"/>
+                                <field name="payment_method_mobile_money"/><label for="payment_method_mobile_money" class="me-3"/>
+                                <field name="payment_method_other"/><label for="payment_method_other"/>
+                            </div>
+                        </setting>
+                    </block>
                 </app>
             </xpath>
 

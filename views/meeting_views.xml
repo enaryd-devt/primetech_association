@@ -1330,12 +1330,6 @@
                                             readonly="1"/>
 
                                         <field
-                                            name="category_id"
-                                            string="Catégorie"
-                                            readonly="1"
-                                            optional="hide"/>
-
-                                        <field
                                             name="amount_due"
                                             string="Dû"
                                             widget="monetary"

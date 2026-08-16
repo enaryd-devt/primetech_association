@@ -22,8 +22,6 @@
 
                 <field name="member_code"/>
 
-                <field name="category_id"/>
-
                 <field name="company_id"/>
 
                 <separator/>
@@ -68,11 +66,6 @@
                         name="group_member"
                         string="Membre"
                         context="{'group_by': 'member_id'}"/>
-
-                    <filter
-                        name="group_category"
-                        string="Catégorie"
-                        context="{'group_by': 'category_id'}"/>
 
                     <filter
                         name="group_state"
@@ -123,11 +116,6 @@
                 <field
                     name="member_code"
                     string="Code membre"/>
-
-                <field
-                    name="category_id"
-                    string="Catégorie"
-                    optional="show"/>
 
                 <field
                     name="issue_date"
@@ -185,7 +173,6 @@
                 <field name="member_id"/>
                 <field name="member_code"/>
                 <field name="image_128"/>
-                <field name="category_id"/>
                 <field name="function_id"/>
                 <field name="issue_date"/>
                 <field name="expiry_date"/>
@@ -242,14 +229,6 @@
                                 </div>
 
                                 <div class="association_member_card__details">
-                                    <div class="association_member_card__detail">
-                                        <div class="association_member_card__label">Catégorie</div>
-                                        <div class="association_member_card__value text-truncate">
-                                            <i class="fa fa-users" title="Catégorie"/>
-                                            <field name="category_id"/>
-                                        </div>
-                                    </div>
-
                                     <div class="association_member_card__detail association_member_card__detail--right">
                                         <div class="association_member_card__label">Expire le</div>
                                         <div class="association_member_card__value">
@@ -520,10 +499,6 @@
                     <group>
 
                         <group string="Membre">
-
-                            <field
-                                name="category_id"
-                                readonly="1"/>
 
                             <field
                                 name="function_id"
