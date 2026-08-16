@@ -66,7 +66,7 @@
                                     <div style="font-size: 7pt; font-weight: 700; letter-spacing: .8px; color: #64748b; text-transform: uppercase;">Émise le</div>
                                     <div style="margin-top: 1.5mm; font-size: 10pt; font-weight: 700; color: #1e293b;"><span t-field="card.issue_date"/></div>
                                 </div>
-                                <div style="display: inline-block; width: 50%; vertical-align: top; text-align: right;">
+                                <div style="display: inline-block; width: 43%; margin-left: 4%; padding: 2.5mm 3mm; border: 0.3mm solid #dbe4ee; border-radius: 2mm; vertical-align: top; text-align: right; background: #f8fafc;">
                                     <div style="font-size: 7pt; font-weight: 700; letter-spacing: .8px; color: #64748b; text-transform: uppercase;">Valide jusqu'au</div>
                                     <div style="margin-top: 1.5mm; font-size: 10pt; font-weight: 700; color: #1e293b;"><span t-field="card.expiry_date"/></div>
                                 </div>
