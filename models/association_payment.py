@@ -488,7 +488,12 @@ class AssociationPayment(models.Model):
                     "transaction_type": "in",
                     "amount": amount,
                     "transaction_date": payment.payment_date,
-                    "description": _("Pénalité encaissée - %s") % payment.name,
+                    "description": _(
+                        "Pénalité encaissée - %(member)s - %(payment)s"
+                    ) % {
+                        "member": payment.member_id.display_name,
+                        "payment": payment.name,
+                    },
                     "company_id": payment.company_id.id,
                     "payment_id": payment.id,
                     "origin_model": "association.payment.penalty",
