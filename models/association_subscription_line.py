@@ -277,6 +277,10 @@ class AssociationSubscriptionLine(models.Model):
     penalty_grace_days_remaining = fields.Integer(
         string="Grâce restante (jours)",
         compute="_compute_penalty_grace_days_remaining",
+        help=(
+            "Compteur individuel calculé depuis l'échéance du cycle. "
+            "La pénalité est appliquée dès qu'il atteint zéro."
+        ),
     )
 
     # ==========================================================
@@ -1476,6 +1480,12 @@ class AssociationSubscriptionLine(models.Model):
     @api.model_create_multi
     def create(self, vals_list):
         records = super().create(vals_list)
+
+        # A member added while a grace period is already at zero must not
+        # wait for the next daily cron execution.
+        records.mapped("subscription_id").filtered(
+            "penalty_enabled"
+        )._refresh_penalty_lines()
 
         return records
 

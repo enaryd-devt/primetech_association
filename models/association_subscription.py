@@ -279,8 +279,9 @@ class AssociationSubscription(models.Model):
         string="Délai de grâce (jours)",
         default=0,
         help=(
-            "Nombre de jours accordés après la date "
-            "d'échéance avant l'application de la pénalité."
+            "Nombre de jours accordés après l'échéance du cycle. "
+            "À 0, la pénalité est immédiate. À 2, elle est appliquée "
+            "le jour où le compteur calculé depuis l'échéance atteint 0."
         ),
     )
 
@@ -389,8 +390,10 @@ class AssociationSubscription(models.Model):
                 "penalty_reason": False,
             })
             lines._compute_penalty_deadline()
+            # Recompute the base balance without the previous penalty before
+            # deciding whether each member is paid, partial or still due.
+            lines._compute_current_cycle_payment()
             if not subscription.penalty_enabled:
-                lines._compute_current_cycle_payment()
                 continue
             due_lines = lines.filtered(
                 lambda line: line.payment_state != "paid"
@@ -423,6 +426,7 @@ class AssociationSubscription(models.Model):
                 line.penalty_date = False
                 line.penalty_reason = False
                 line._compute_penalty_deadline()
+                line._compute_current_cycle_payment()
                 is_due = (
                     subscription.penalty_enabled
                     and line.payment_state != "paid"

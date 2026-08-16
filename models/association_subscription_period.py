@@ -116,6 +116,10 @@ class AssociationSubscriptionPeriod(models.Model):
     penalty_grace_days_remaining = fields.Integer(
         string="Grâce restante (jours)",
         compute="_compute_penalty_grace_days_remaining",
+        help=(
+            "Nombre de jours avant l'application des pénalités du cycle, "
+            "calculé à partir de sa date d'échéance."
+        ),
     )
 
     penalty_amount = fields.Monetary(
