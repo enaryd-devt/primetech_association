@@ -210,6 +210,18 @@ class AssociationPenalty(models.Model):
         store=True,
     )
 
+    payment_state = fields.Selection(
+        selection=[
+            ("not_paid", "Non payé"),
+            ("partial", "Partiellement payé"),
+            ("paid", "Payé"),
+        ],
+        string="État du paiement",
+        compute="_compute_payment_state",
+        store=True,
+        index=True,
+    )
+
     # ==========================================================
     # SUSPENSION
     # ==========================================================
@@ -378,6 +390,47 @@ class AssociationPenalty(models.Model):
                 record.amount - record.amount_paid,
                 0.0,
             )
+
+    @api.depends(
+        "penalty_type",
+        "amount",
+        "amount_paid",
+        "amount_remaining",
+    )
+    def _compute_payment_state(self):
+
+        for record in self:
+
+            amount = (
+                record.amount
+                or 0.0
+            )
+
+            amount_paid = (
+                record.amount_paid
+                or 0.0
+            )
+
+            amount_remaining = (
+                record.amount_remaining
+                or 0.0
+            )
+
+            if (
+                record.penalty_type != "fine"
+                or amount <= 0
+                or amount_remaining <= 0.01
+            ):
+
+                record.payment_state = "paid"
+
+            elif amount_paid <= 0:
+
+                record.payment_state = "not_paid"
+
+            else:
+
+                record.payment_state = "partial"
 
     # ==========================================================
     # CRÉATION

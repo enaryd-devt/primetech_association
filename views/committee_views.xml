@@ -159,6 +159,7 @@
                     <button
                         name="action_start"
                         type="object"
+                        groups="primetech_association.group_association_manager,primetech_association.group_association_admin"
                         string="Démarrer le mandat"
                         icon="fa-play-circle"
                         class="btn-primary"
@@ -167,6 +168,7 @@
                     <button
                         name="action_expire"
                         type="object"
+                        groups="primetech_association.group_association_manager,primetech_association.group_association_admin"
                         string="Clôturer le mandat"
                         icon="fa-check-circle"
                         class="btn-secondary"
@@ -175,6 +177,7 @@
                     <button
                         name="action_cancel"
                         type="object"
+                        groups="primetech_association.group_association_manager,primetech_association.group_association_admin"
                         string="Annuler"
                         icon="fa-ban"
                         class="btn-secondary"
@@ -183,6 +186,7 @@
                     <button
                         name="action_reset_draft"
                         type="object"
+                        groups="primetech_association.group_association_manager,primetech_association.group_association_admin"
                         string="Remettre en brouillon"
                         icon="fa-undo"
                         class="btn-secondary"

@@ -244,6 +244,12 @@ class AssociationSubscriptionPeriod(models.Model):
         compute="_compute_member_statistics",
     )
 
+    member_cycle_line_ids = fields.Many2many(
+        comodel_name="association.subscription.line",
+        string="Membres du cycle",
+        compute="_compute_member_cycle_line_ids",
+    )
+
     expected_amount = fields.Monetary(
         string="Montant attendu",
         compute="_compute_member_statistics",
@@ -283,6 +289,23 @@ class AssociationSubscriptionPeriod(models.Model):
     # ==========================================================
     # NOM
     # ==========================================================
+
+    @api.depends(
+        "subscription_id",
+        "subscription_id.line_ids",
+        "subscription_id.line_ids.active",
+    )
+    def _compute_member_cycle_line_ids(self):
+
+        for period in self:
+
+            period.member_cycle_line_ids = (
+                period.subscription_id.line_ids.filtered(
+                    lambda line: line.active
+                )
+                if period.subscription_id
+                else False
+            )
 
     @api.depends(
         "sequence",
@@ -376,8 +399,11 @@ class AssociationSubscriptionPeriod(models.Model):
     # ==========================================================
 
     @api.depends(
-        "subscription_id.line_ids.amount_paid",
-        "subscription_id.line_ids.payment_state",
+        "subscription_id.amount",
+        "subscription_id.line_ids.payment_line_ids.amount_paid",
+        "subscription_id.line_ids.payment_line_ids.payment_id.state",
+        "subscription_id.line_ids.payment_line_ids.payment_id.subscription_period_id",
+        "subscription_id.line_ids.payment_line_ids.subscription_period_id",
         "subscription_id.line_ids.penalty_amount",
         "allocation_ids.amount",
         "allocation_ids.state",
@@ -389,19 +415,28 @@ class AssociationSubscriptionPeriod(models.Model):
 
             lines = period._get_subscription_lines()
 
+            payment_lines = period._get_confirmed_payment_lines()
+
             collected_amount = sum(
-                lines.mapped("amount_paid")
+                payment_lines.mapped("amount_paid")
             )
 
-            payment_lines = period._get_confirmed_payment_lines()
             penalty_collected_amount = 0.0
+
             for line in lines:
+
                 paid = sum(payment_lines.filtered(
                     lambda payment_line: payment_line.subscription_line_id == line
                 ).mapped("amount_paid"))
+                penalty_due = self.env[
+                    "association.payment.line"
+                ]._get_period_penalty_due_for_line(
+                    line,
+                    period,
+                )
                 penalty_collected_amount += min(
                     max(paid - (period.subscription_id.amount or 0.0), 0.0),
-                    line.penalty_amount or 0.0,
+                    penalty_due,
                 )
 
             allocated_amount = sum(
@@ -435,11 +470,18 @@ class AssociationSubscriptionPeriod(models.Model):
     # ==========================================================
 
     @api.depends(
-        "subscription_id.line_ids.amount_due",
-        "subscription_id.line_ids.amount_paid",
-        "subscription_id.line_ids.payment_state",
+        "subscription_id.amount",
+        "subscription_id.line_ids.penalty_amount",
+        "subscription_id.line_ids.payment_line_ids.amount_paid",
+        "subscription_id.line_ids.payment_line_ids.payment_id.state",
+        "subscription_id.line_ids.payment_line_ids.payment_id.subscription_period_id",
+        "subscription_id.line_ids.payment_line_ids.subscription_period_id",
     )
     def _compute_member_statistics(self):
+
+        PaymentLine = self.env[
+            "association.payment.line"
+        ]
 
         for period in self:
 
@@ -447,30 +489,38 @@ class AssociationSubscriptionPeriod(models.Model):
 
             period.member_count = len(lines)
 
-            period.paid_member_count = len(
-                lines.filtered(
-                    lambda line:
-                        line.payment_state == "paid"
-                )
-            )
+            paid_count = 0
+            partial_count = 0
+            unpaid_count = 0
+            expected_amount = 0.0
 
-            period.partial_member_count = len(
-                lines.filtered(
-                    lambda line:
-                        line.payment_state == "partial"
-                )
-            )
+            for line in lines:
 
-            period.unpaid_member_count = len(
-                lines.filtered(
-                    lambda line:
-                        line.payment_state == "not_paid"
+                amount_due = PaymentLine._get_period_due_for_line(
+                    line,
+                    period,
                 )
-            )
 
-            period.expected_amount = sum(
-                lines.mapped("amount_due")
-            )
+                amount_paid = PaymentLine._get_period_paid_for_line(
+                    line,
+                    period,
+                )
+
+                expected_amount += amount_due
+
+                if amount_paid <= 0:
+                    unpaid_count += 1
+
+                elif amount_paid < amount_due - 0.01:
+                    partial_count += 1
+
+                else:
+                    paid_count += 1
+
+            period.paid_member_count = paid_count
+            period.partial_member_count = partial_count
+            period.unpaid_member_count = unpaid_count
+            period.expected_amount = expected_amount
 
             if period.expected_amount > 0:
 
@@ -630,6 +680,24 @@ class AssociationSubscriptionPeriod(models.Model):
                 )
 
             if period.sequence > 1:
+                previous_period = period.subscription_id.period_ids.filtered(
+                    lambda item: item.state == "closed"
+                ).sorted(
+                    key=lambda item: (
+                        item.sequence,
+                        item.id,
+                    ),
+                    reverse=True,
+                )[:1]
+
+                if previous_period:
+                    self.env[
+                        "association.subscription.penalty.recap"
+                    ]._sync_for_lines_period(
+                        period.subscription_id.line_ids.filtered("active"),
+                        previous_period,
+                    )
+
                 period.subscription_id.line_ids.write({
                     "penalty_amount": 0.0,
                     "penalty_applied": False,

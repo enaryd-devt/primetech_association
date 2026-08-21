@@ -1,4 +1,20 @@
 // Stable member avatar zone in the association card form.
+.o_form_view .o-mail-Form-chatter:not(.o-aside),
+.o_form_view .o-mail-ChatterContainer:not(.o-aside),
+.o_form_view .oe_chatter {
+    width: 100% !important;
+    max-width: none !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+}
+
+.o_form_view .o-mail-Form-chatter:not(.o-aside) .o-mail-Chatter,
+.o_form_view .o-mail-ChatterContainer:not(.o-aside) .o-mail-Chatter,
+.o_form_view .oe_chatter {
+    width: 100% !important;
+    max-width: none !important;
+}
+
 .association_member_form_avatar {
     width: 160px !important;
     height: 160px !important;

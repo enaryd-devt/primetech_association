@@ -12,7 +12,7 @@
             <group string="Surplus"><field name="surplus_amount" widget="monetary" options="{'currency_field': 'currency_id'}"/><field name="surplus_action" widget="radio"/><field name="currency_id" invisible="1"/></group>
           </group>
         </sheet>
-        <footer><button name="action_process" type="object" string="Valider l'encaissement" class="btn-primary"/><button string="Annuler" special="cancel" class="btn-secondary"/></footer>
+        <footer><button name="action_process" type="object" string="Valider l'encaissement" class="btn-primary" groups="primetech_association.group_association_meeting_treasurer,primetech_association.group_association_manager,primetech_association.group_association_admin"/><button string="Annuler" special="cancel" class="btn-secondary"/></footer>
       </form>
     </field>
   </record>

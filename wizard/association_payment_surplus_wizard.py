@@ -785,6 +785,8 @@ class AssociationPaymentSurplusWizard(models.TransientModel):
             )
 
             if payment_wizard:
+                if not payment_wizard.payment_id:
+                    payment_wizard.payment_id = payment.id
 
                 return (
                     payment_wizard

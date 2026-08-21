@@ -188,6 +188,7 @@
                     <button
                         name="action_activate"
                         type="object"
+                        groups="primetech_association.group_association_manager,primetech_association.group_association_admin"
                         string="Activer"
                         icon="fa-check-circle"
                         class="btn-primary"
@@ -201,6 +202,7 @@
                     <button
                         name="action_suspend"
                         type="object"
+                        groups="primetech_association.group_association_manager,primetech_association.group_association_admin"
                         string="Suspendre"
                         icon="fa-pause-circle"
                         class="btn-secondary"
@@ -214,6 +216,7 @@
                     <button
                         name="action_reactivate"
                         type="object"
+                        groups="primetech_association.group_association_manager,primetech_association.group_association_admin"
                         string="Réactiver"
                         icon="fa-refresh"
                         class="btn-primary"
@@ -227,6 +230,7 @@
                     <button
                         name="action_resign"
                         type="object"
+                        groups="primetech_association.group_association_manager,primetech_association.group_association_admin"
                         string="Démissionner"
                         icon="fa-sign-out"
                         class="btn-secondary"
@@ -240,6 +244,7 @@
                     <button
                         name="action_exclude"
                         type="object"
+                        groups="primetech_association.group_association_manager,primetech_association.group_association_admin"
                         string="Exclure"
                         icon="fa-ban"
                         class="btn-secondary"
@@ -253,6 +258,7 @@
                     <button
                         name="action_reset_draft"
                         type="object"
+                        groups="primetech_association.group_association_manager,primetech_association.group_association_admin"
                         string="Remettre en brouillon"
                         icon="fa-undo"
                         class="btn-secondary"
@@ -330,7 +336,8 @@
                             class="oe_stat_button"
                             icon="fa-credit-card"
                             type="object"
-                            name="action_view_payments">
+                            name="action_view_payments"
+                            groups="primetech_association.group_association_meeting_treasurer,primetech_association.group_association_manager,primetech_association.group_association_admin">
 
                             <field
                                 name="payment_count"
@@ -343,12 +350,27 @@
                             class="oe_stat_button"
                             icon="fa-calendar-check-o"
                             type="object"
-                            name="action_view_subscriptions">
+                            name="action_view_subscriptions"
+                            groups="primetech_association.group_association_meeting_treasurer,primetech_association.group_association_manager,primetech_association.group_association_admin">
 
                             <field
                                 name="subscription_count"
                                 widget="statinfo"
                                 string="Cotisations"/>
+
+                        </button>
+
+                        <button
+                            class="oe_stat_button"
+                            icon="fa-money"
+                            type="object"
+                            name="action_view_subscription_penalties"
+                            groups="primetech_association.group_association_meeting_treasurer,primetech_association.group_association_manager,primetech_association.group_association_admin">
+
+                            <field
+                                name="subscription_penalty_count"
+                                widget="statinfo"
+                                string="Pénalités cotisation"/>
 
                         </button>
 
@@ -382,7 +404,8 @@
                             class="oe_stat_button"
                             icon="fa-gift"
                             type="object"
-                            name="action_view_donations">
+                            name="action_view_donations"
+                            groups="primetech_association.group_association_manager,primetech_association.group_association_admin">
 
                             <field
                                 name="donation_count"
@@ -395,7 +418,8 @@
                             class="oe_stat_button"
                             icon="fa-exclamation-triangle"
                             type="object"
-                            name="action_view_penalties">
+                            name="action_view_penalties"
+                            groups="primetech_association.group_association_meeting_president,primetech_association.group_association_meeting_censor,primetech_association.group_association_manager,primetech_association.group_association_admin">
 
                             <field
                                 name="penalty_count"
@@ -760,7 +784,8 @@
 
                             <div class="row g-3">
 
-                                <div class="col-lg-6 col-12">
+                                <div class="col-lg-6 col-12"
+                                     groups="primetech_association.group_association_meeting_treasurer,primetech_association.group_association_manager,primetech_association.group_association_admin">
 
                                     <div class="border rounded-3 p-3 h-100">
 
@@ -778,14 +803,22 @@
 
                                             <field
                                                 name="subscription_count"
+                                                groups="primetech_association.group_association_meeting_treasurer,primetech_association.group_association_manager,primetech_association.group_association_admin"
                                                 readonly="1"/>
 
                                             <field
                                                 name="payment_count"
+                                                groups="primetech_association.group_association_meeting_treasurer,primetech_association.group_association_manager,primetech_association.group_association_admin"
+                                                readonly="1"/>
+
+                                            <field
+                                                name="subscription_penalty_count"
+                                                groups="primetech_association.group_association_meeting_treasurer,primetech_association.group_association_manager,primetech_association.group_association_admin"
                                                 readonly="1"/>
 
                                             <field
                                                 name="donation_count"
+                                                groups="primetech_association.group_association_manager,primetech_association.group_association_admin"
                                                 readonly="1"/>
 
                                         </group>
@@ -821,6 +854,7 @@
 
                                             <field
                                                 name="penalty_count"
+                                                groups="primetech_association.group_association_meeting_president,primetech_association.group_association_meeting_censor,primetech_association.group_association_manager,primetech_association.group_association_admin"
                                                 readonly="1"/>
 
                                         </group>

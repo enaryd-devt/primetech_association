@@ -280,6 +280,7 @@
                     <button
                         name="action_issue"
                         type="object"
+                        groups="primetech_association.group_association_manager,primetech_association.group_association_admin"
                         string="Émettre"
                         class="btn-primary"
                         invisible="state != 'draft'"/>
@@ -287,12 +288,14 @@
                     <button
                         name="action_block"
                         type="object"
+                        groups="primetech_association.group_association_manager,primetech_association.group_association_admin"
                         string="Bloquer"
                         invisible="state != 'active'"/>
 
                     <button
                         name="action_reactivate"
                         type="object"
+                        groups="primetech_association.group_association_manager,primetech_association.group_association_admin"
                         string="Réactiver"
                         class="btn-primary"
                         invisible="state != 'blocked'"/>
@@ -308,12 +311,14 @@
                     <button
                         name="action_expire"
                         type="object"
+                        groups="primetech_association.group_association_manager,primetech_association.group_association_admin"
                         string="Marquer expirée"
                         invisible="state not in ('active', 'blocked')"/>
 
                     <button
                         name="action_renew"
                         type="object"
+                        groups="primetech_association.group_association_manager,primetech_association.group_association_admin"
                         string="Renouveler"
                         class="btn-primary"
                         invisible="state not in ('active', 'expired', 'blocked')"/>
@@ -321,6 +326,7 @@
                     <button
                         name="action_cancel"
                         type="object"
+                        groups="primetech_association.group_association_manager,primetech_association.group_association_admin"
                         string="Annuler"
                         invisible="state == 'cancelled'"/>
 

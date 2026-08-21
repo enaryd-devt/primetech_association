@@ -533,6 +533,12 @@ class AssociationMeeting(models.Model):
                 "primetech_association.group_association_meeting_secretary"
             )
             or self.env.user.has_group(
+                "primetech_association.group_association_meeting_president"
+            )
+            or self.env.user.has_group(
+                "primetech_association.group_association_manager"
+            )
+            or self.env.user.has_group(
                 "primetech_association.group_association_admin"
             )
         )

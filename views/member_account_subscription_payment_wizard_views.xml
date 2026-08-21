@@ -7,13 +7,14 @@
             <form string="Utiliser le compte membre">
                 <group>
                     <field name="member_id"/>
+                    <field name="period_id"/>
                     <field name="amount_due" string="Reste à payer"/>
                     <field name="account_balance" string="Solde disponible"/>
                     <field name="amount_to_pay" string="Montant à utiliser"/>
                 </group>
                 <p class="text-muted">Le montant disponible sera utilisé. Si le solde est insuffisant, le règlement sera partiel.</p>
                 <footer>
-                    <button name="action_confirm" type="object" string="Confirmer l'utilisation des fonds" class="btn-primary"/>
+                    <button name="action_confirm" type="object" string="Confirmer l'utilisation des fonds" class="btn-primary" groups="primetech_association.group_association_meeting_treasurer,primetech_association.group_association_manager,primetech_association.group_association_admin"/>
                     <button string="Annuler" special="cancel" class="btn-secondary"/>
                 </footer>
             </form>

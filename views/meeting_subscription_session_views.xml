@@ -22,11 +22,11 @@
         <field name="arch" type="xml">
             <form string="Session de cotisation">
                 <header>
-                    <button name="action_start_collection" type="object" string="Démarrer l'encaissement" class="btn-primary" invisible="state != 'draft'"/>
-                    <button name="action_start_next_cycle" type="object" string="Démarrer le cycle suivant" class="btn-secondary" invisible="state != 'draft' or period_id" confirm="Le nouveau cycle sera démarré pour cette cotisation dans cette nouvelle réunion."/>
-                    <button name="action_generate_members" type="object" string="Générer les membres" invisible="state not in ('draft', 'collecting')"/>
-                    <button name="action_collect_all" type="object" string="Encaisser les montants saisis" class="btn-primary" invisible="state != 'collecting'"/>
-                    <button name="action_open_settlement" type="object" string="Décider et clôturer" class="btn-primary" invisible="state not in ('collecting', 'decision')"/>
+                    <button name="action_start_collection" type="object" string="Démarrer l'encaissement" class="btn-primary" invisible="state != 'draft'" groups="primetech_association.group_association_meeting_treasurer,primetech_association.group_association_manager,primetech_association.group_association_admin"/>
+                    <button name="action_start_next_cycle" type="object" string="Démarrer le cycle suivant" class="btn-secondary" invisible="state != 'draft' or period_id" confirm="Le nouveau cycle sera démarré pour cette cotisation dans cette nouvelle réunion." groups="primetech_association.group_association_meeting_treasurer,primetech_association.group_association_manager,primetech_association.group_association_admin"/>
+                    <button name="action_generate_members" type="object" string="Générer les membres" invisible="state not in ('draft', 'collecting')" groups="primetech_association.group_association_meeting_treasurer,primetech_association.group_association_manager,primetech_association.group_association_admin"/>
+                    <button name="action_collect_all" type="object" string="Encaisser les montants saisis" class="btn-primary" invisible="state != 'collecting'" groups="primetech_association.group_association_meeting_treasurer,primetech_association.group_association_manager,primetech_association.group_association_admin"/>
+                    <button name="action_open_settlement" type="object" string="Décider et clôturer" class="btn-primary" invisible="state not in ('collecting', 'decision')" groups="primetech_association.group_association_meeting_treasurer,primetech_association.group_association_manager,primetech_association.group_association_admin"/>
                     <button name="action_print_report" type="object" string="Imprimer le rapport PDF" icon="fa-print" invisible="state != 'closed'"/>
                     <field name="state" widget="statusbar" statusbar_visible="draft,collecting,decision,closed"/>
                 </header>
@@ -63,8 +63,8 @@
                                     <field name="amount"/>
                                     <field name="payment_method"/>
                                     <field name="state" widget="badge"/>
-                                    <button name="action_collect" type="object" string="Encaisser" icon="fa-check" invisible="state != 'pending'"/>
-                                    <button name="action_pay_from_member_account" type="object" string="Compte membre" icon="fa-credit-card" invisible="state != 'pending'"/>
+                                    <button name="action_collect" type="object" string="Encaisser" icon="fa-check" invisible="state != 'pending'" groups="primetech_association.group_association_meeting_treasurer,primetech_association.group_association_manager,primetech_association.group_association_admin"/>
+                                    <button name="action_pay_from_member_account" type="object" string="Compte membre" icon="fa-credit-card" invisible="state != 'pending'" groups="primetech_association.group_association_meeting_treasurer,primetech_association.group_association_manager,primetech_association.group_association_admin"/>
                                 </list>
                             </field>
                         </page>

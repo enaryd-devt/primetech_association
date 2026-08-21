@@ -672,6 +672,11 @@ class AssociationMember(models.Model):
         compute="_compute_statistics",
     )
 
+    subscription_penalty_count = fields.Integer(
+        string="Pénalités de cotisation",
+        compute="_compute_statistics",
+    )
+
 
     balance = fields.Monetary(
         string="Solde du compte",
@@ -772,8 +777,9 @@ class AssociationMember(models.Model):
         for rec in self:
             rec.is_executive = bool(
                 rec.function_id and rec.function_id.executive_member
-            )@api.depends("first_name", "last_name")
-    
+            )
+
+    @api.depends("first_name", "last_name")
     def _compute_name(self):
         for rec in self:
             rec.name = " ".join(
@@ -793,13 +799,38 @@ class AssociationMember(models.Model):
                     today.year - rec.join_date.year
                 )
 
+    @api.depends_context("uid")
     def _compute_statistics(self):
         SubscriptionLine = self.env["association.subscription.line"]
+        Period = self.env["association.subscription.period"]
         Payment = self.env["association.payment"]
         Meeting = self.env["association.meeting"]
         Attendance = self.env["association.attendance"]
         Donation = self.env["association.donation"]
         Penalty = self.env["association.penalty"]
+        SubscriptionPenaltyRecap = self.env[
+            "association.subscription.penalty.recap"
+        ]
+        can_manage = (
+            self.env.user.has_group(
+                "primetech_association.group_association_manager"
+            )
+            or self.env.user.has_group(
+                "primetech_association.group_association_admin"
+            )
+        )
+        can_finance = can_manage or self.env.user.has_group(
+            "primetech_association.group_association_meeting_treasurer"
+        )
+        can_discipline = (
+            can_manage
+            or self.env.user.has_group(
+                "primetech_association.group_association_meeting_president"
+            )
+            or self.env.user.has_group(
+                "primetech_association.group_association_meeting_censor"
+            )
+        )
 
         for rec in self:
             if not rec.id:
@@ -809,30 +840,81 @@ class AssociationMember(models.Model):
                 rec.attendance_count = 0
                 rec.donation_count = 0
                 rec.penalty_count = 0
+                rec.subscription_penalty_count = 0
             
                 continue
 
-            # ----------------------------------------------------------
-            # SUBSCRIPTIONS
-            # ----------------------------------------------------------
+            rec.subscription_count = 0
+            rec.payment_count = 0
+            rec.donation_count = 0
+            rec.penalty_count = 0
+            rec.subscription_penalty_count = 0
 
-            subscription_lines = SubscriptionLine.search([
-                ("member_id", "=", rec.id)
-            ])
+            if can_finance:
+                subscription_lines = SubscriptionLine.search([
+                    ("member_id", "=", rec.id)
+                ])
 
-            rec.subscription_count = len(
-                subscription_lines.mapped("subscription_id")
-            )
+                rec.subscription_count = Period.search_count(
+                    [
+                        (
+                            "subscription_id",
+                            "in",
+                            subscription_lines
+                            .mapped("subscription_id")
+                            .ids,
+                        ),
+                        (
+                            "state",
+                            "in",
+                            [
+                                "running",
+                                "closed",
+                            ],
+                        ),
+                    ]
+                )
 
-            # ----------------------------------------------------------
-            # PAYMENTS
-            # ----------------------------------------------------------
+                payments = Payment.search([
+                    ("member_id", "=", rec.id)
+                ])
 
-            payments = Payment.search([
-                ("member_id", "=", rec.id)
-            ])
+                rec.payment_count = len(payments)
 
-            rec.payment_count = len(payments)
+                SubscriptionPenaltyRecap._sync_member(
+                    rec
+                )
+
+                rec.subscription_penalty_count = (
+                    SubscriptionPenaltyRecap.search_count(
+                        [
+                            (
+                                "member_id",
+                                "=",
+                                rec.id,
+                            ),
+                            (
+                                "active",
+                                "=",
+                                True,
+                            ),
+                        ]
+                    )
+                )
+
+            if can_manage:
+                donations = Donation.search([
+                    ("member_id", "=", rec.id)
+                ])
+
+                rec.donation_count = len(donations)
+
+            if can_discipline:
+                penalties = Penalty.search([
+                    ("member_id", "=", rec.id)
+                ])
+
+                rec.penalty_count = len(penalties)
 
             # ----------------------------------------------------------
             # MEETINGS
@@ -847,40 +929,6 @@ class AssociationMember(models.Model):
             rec.meeting_count = len(
                 attendances.mapped("meeting_id")
             )
-
-        # ----------------------------------------------------------
-        # DONATIONS
-        # ----------------------------------------------------------
-
-        donations = Donation.search([
-            ("member_id", "=", rec.id)
-        ])
-
-        rec.donation_count = len(donations)
-
-        # ----------------------------------------------------------
-        # PENALTIES
-        # ----------------------------------------------------------
-
-        penalties = Penalty.search([
-            ("member_id", "=", rec.id)
-        ])
-
-        rec.penalty_count = len(penalties)
-
-        # ----------------------------------------------------------
-        # BALANCE
-        # ----------------------------------------------------------
-
-        total_due = sum(
-            subscription_lines.mapped("amount_due")
-        )
-
-        total_paid = sum(
-            subscription_lines.mapped("amount_paid")
-        )
-
-        rec.balance = total_due - total_paid
 
         
     def _compute_attachment_count(self):
@@ -1182,31 +1230,245 @@ class AssociationMember(models.Model):
 
     def action_view_subscriptions(self):
         """
-        Open subscriptions linked to the current member
-        through association.subscription.line.
+        Open the member cycle-by-cycle subscription situation.
         """
         self.ensure_one()
 
-        subscription_lines = self.env[
+        SubscriptionLine = self.env[
             "association.subscription.line"
-        ].search([
-            ("member_id", "=", self.id),
-        ])
+        ]
 
-        subscription_ids = subscription_lines.mapped(
-            "subscription_id"
-        ).ids
+        Period = self.env[
+            "association.subscription.period"
+        ]
+
+        PaymentLine = self.env[
+            "association.payment.line"
+        ]
+
+        Report = self.env[
+            "association.member.subscription.cycle.report"
+        ]
+
+        Report.search(
+            [
+                (
+                    "member_id",
+                    "=",
+                    self.id,
+                ),
+                (
+                    "create_uid",
+                    "=",
+                    self.env.uid,
+                ),
+            ]
+        ).unlink()
+
+        subscription_lines = SubscriptionLine.search(
+            [
+                (
+                    "member_id",
+                    "=",
+                    self.id,
+                ),
+            ]
+        )
+
+        report_records = Report
+
+        for subscription_line in subscription_lines:
+
+            periods = Period.search(
+                [
+                    (
+                        "subscription_id",
+                        "=",
+                        subscription_line.subscription_id.id,
+                    ),
+                    (
+                        "state",
+                        "in",
+                        [
+                            "running",
+                            "closed",
+                        ],
+                    ),
+                ],
+                order="sequence asc, id asc",
+            )
+
+            for period in periods:
+
+                amount_paid = PaymentLine._get_period_paid_for_line(
+                    subscription_line,
+                    period,
+                )
+
+                breakdown = PaymentLine._get_period_amount_breakdown_for_line(
+                    subscription_line,
+                    period,
+                    current_amount=0.0,
+                    already_paid=amount_paid,
+                )
+
+                amount_due = breakdown[
+                    "base_amount_due"
+                ]
+
+                amount_paid = breakdown[
+                    "contribution_paid_amount"
+                ]
+
+                balance = max(
+                    breakdown[
+                        "subscription_balance_amount"
+                    ],
+                    0.0,
+                )
+
+                if amount_paid <= 0:
+                    payment_state = "not_paid"
+
+                elif balance > 0.01:
+                    payment_state = "partial"
+
+                else:
+                    payment_state = "paid"
+
+                payment_lines = PaymentLine.search(
+                    [
+                        (
+                            "subscription_line_id",
+                            "=",
+                            subscription_line.id,
+                        ),
+                        (
+                            "payment_id.state",
+                            "=",
+                            "confirmed",
+                        ),
+                        "|",
+                        (
+                            "subscription_period_id",
+                            "=",
+                            period.id,
+                        ),
+                        "&",
+                        (
+                            "subscription_period_id",
+                            "=",
+                            False,
+                        ),
+                        (
+                            "payment_id.subscription_period_id",
+                            "=",
+                            period.id,
+                        ),
+                    ],
+                    order="payment_date desc, id desc",
+                    limit=1,
+                )
+
+                report_records |= Report.create(
+                    {
+                        "member_id":
+                            self.id,
+
+                        "subscription_id":
+                            subscription_line.subscription_id.id,
+
+                        "subscription_period_id":
+                            period.id,
+
+                        "subscription_line_id":
+                            subscription_line.id,
+
+                        "amount_due":
+                            amount_due,
+
+                        "base_amount_due":
+                            breakdown[
+                                "base_amount_due"
+                            ],
+
+                        "contribution_paid_amount":
+                            breakdown[
+                                "contribution_paid_amount"
+                            ],
+
+                        "subscription_balance_amount":
+                            breakdown[
+                                "subscription_balance_amount"
+                            ],
+
+                        "penalty_due_amount":
+                            breakdown[
+                                "penalty_due_amount"
+                            ],
+
+                        "penalty_paid_amount":
+                            breakdown[
+                                "penalty_paid_amount"
+                            ],
+
+                        "penalty_balance_amount":
+                            breakdown[
+                                "penalty_balance_amount"
+                            ],
+
+                        "amount_paid":
+                            amount_paid,
+
+                        "balance":
+                            balance,
+
+                        "payment_state":
+                            payment_state,
+
+                        "last_payment_date":
+                            (
+                                payment_lines.payment_id.payment_date
+                                if payment_lines
+                                else False
+                            ),
+                    }
+                )
 
         return {
             "type": "ir.actions.act_window",
-            "name": _("Subscriptions"),
-            "res_model": "association.subscription",
+            "name": _("Cotisations du membre"),
+            "res_model": "association.member.subscription.cycle.report",
             "view_mode": "list,form",
+            "views": [
+                (
+                    self.env.ref(
+                        "primetech_association.view_member_subscription_cycle_report_list"
+                    ).id,
+                    "list",
+                ),
+                (
+                    self.env.ref(
+                        "primetech_association.view_member_subscription_cycle_report_form"
+                    ).id,
+                    "form",
+                ),
+            ],
+            "search_view_id": self.env.ref(
+                "primetech_association.view_member_subscription_cycle_report_search"
+            ).id,
             "domain": [
-                ("id", "in", subscription_ids),
+                (
+                    "id",
+                    "in",
+                    report_records.ids,
+                ),
             ],
             "context": {
+                "search_default_group_payment_state": 1,
                 "create": False,
+                "edit": False,
+                "delete": False,
             },
         }
 
@@ -1278,6 +1540,61 @@ class AssociationMember(models.Model):
             },
         }
 
+    def action_view_subscription_penalties(self):
+        """
+        Open subscription penalty recap linked to the current member.
+        """
+        self.ensure_one()
+
+        Recap = self.env[
+            "association.subscription.penalty.recap"
+        ]
+
+        Recap._sync_member(self)
+
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Pénalités de cotisation du membre"),
+            "res_model": "association.subscription.penalty.recap",
+            "view_mode": "list,form",
+            "views": [
+                (
+                    self.env.ref(
+                        "primetech_association.view_subscription_penalty_recap_list"
+                    ).id,
+                    "list",
+                ),
+                (
+                    self.env.ref(
+                        "primetech_association.view_subscription_penalty_recap_form"
+                    ).id,
+                    "form",
+                ),
+            ],
+            "search_view_id": self.env.ref(
+                "primetech_association.view_subscription_penalty_recap_search"
+            ).id,
+            "domain": [
+                (
+                    "member_id",
+                    "=",
+                    self.id,
+                ),
+                (
+                    "active",
+                    "=",
+                    True,
+                ),
+            ],
+            "context": {
+                "default_member_id": self.id,
+                "search_default_group_payment_state": 1,
+                "create": False,
+                "edit": False,
+                "delete": False,
+            },
+        }
+
     def action_view_penalties(self):
         """
         Open penalties linked to the current member.
@@ -1286,7 +1603,7 @@ class AssociationMember(models.Model):
 
         return {
             "type": "ir.actions.act_window",
-            "name": _("Penalties"),
+            "name": _("Récap pénalités du membre"),
             "res_model": "association.penalty",
             "view_mode": "list,form",
             "domain": [
@@ -1294,6 +1611,8 @@ class AssociationMember(models.Model):
             ],
             "context": {
                 "default_member_id": self.id,
+                "search_default_group_payment_state": 1,
+                "create": False,
             },
         }
     

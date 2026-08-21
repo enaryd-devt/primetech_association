@@ -632,6 +632,7 @@
                         string="Confirmer et terminer le cycle"
                         type="object"
                         class="btn-primary"
+                        groups="primetech_association.group_association_meeting_treasurer,primetech_association.group_association_manager,primetech_association.group_association_admin"
                         invisible="not has_beneficiaries"/>
 
                     <button

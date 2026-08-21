@@ -2,6 +2,190 @@
 <odoo>
 
     <!-- ========================================================= -->
+    <!-- SITUATION DES COTISATIONS D'UN MEMBRE                     -->
+    <!-- ========================================================= -->
+
+    <record id="view_member_subscription_cycle_report_search" model="ir.ui.view">
+        <field name="name">association.member.subscription.cycle.report.search</field>
+        <field name="model">association.member.subscription.cycle.report</field>
+        <field name="arch" type="xml">
+
+            <search string="Situation des cotisations">
+
+                <field name="member_id"/>
+                <field name="subscription_id"/>
+                <field name="subscription_period_id"/>
+                <field name="subscription_line_id"/>
+
+                <filter
+                    name="filter_not_paid"
+                    string="Non payé"
+                    domain="[('payment_state', '=', 'not_paid')]"/>
+
+                <filter
+                    name="filter_partial"
+                    string="Partiel"
+                    domain="[('payment_state', '=', 'partial')]"/>
+
+                <filter
+                    name="filter_paid"
+                    string="Payé"
+                    domain="[('payment_state', '=', 'paid')]"/>
+
+                <separator/>
+
+                <filter
+                    name="filter_running"
+                    string="Cycles en cours"
+                    domain="[('period_state', '=', 'running')]"/>
+
+                <filter
+                    name="filter_closed"
+                    string="Cycles terminés"
+                    domain="[('period_state', '=', 'closed')]"/>
+
+                <group expand="0" string="Regrouper par">
+
+                    <filter
+                        name="group_subscription"
+                        string="Cotisation"
+                        context="{'group_by': 'subscription_id'}"/>
+
+                    <filter
+                        name="group_payment_state"
+                        string="État du paiement"
+                        context="{'group_by': 'payment_state'}"/>
+
+                    <filter
+                        name="group_period_state"
+                        string="Statut du cycle"
+                        context="{'group_by': 'period_state'}"/>
+
+                </group>
+
+            </search>
+
+        </field>
+    </record>
+
+    <record id="view_member_subscription_cycle_report_list" model="ir.ui.view">
+        <field name="name">association.member.subscription.cycle.report.list</field>
+        <field name="model">association.member.subscription.cycle.report</field>
+        <field name="arch" type="xml">
+
+            <list
+                string="Cotisations du membre"
+                create="0"
+                edit="0"
+                delete="0"
+                decoration-danger="payment_state == 'not_paid'"
+                decoration-warning="payment_state == 'partial'"
+                decoration-success="payment_state == 'paid'">
+
+                <field name="subscription_id"/>
+
+                <field name="subscription_period_id"/>
+
+                <field
+                    name="subscription_line_id"
+                    column_invisible="1"/>
+
+                <field
+                    name="period_state"
+                    widget="badge"/>
+
+                <field
+                    name="amount_due"
+                    string="Montant cotisation"
+                    sum="Total cotisations"/>
+
+                <field
+                    name="amount_paid"
+                    string="Montant payé"
+                    sum="Total payé"/>
+
+                <field
+                    name="balance"
+                    string="Reste à payer"
+                    sum="Reste à payer"/>
+
+                <field
+                    name="payment_state"
+                    widget="badge"
+                    decoration-danger="payment_state == 'not_paid'"
+                    decoration-warning="payment_state == 'partial'"
+                    decoration-success="payment_state == 'paid'"/>
+
+                <field name="last_payment_date"/>
+
+                <button
+                    name="action_register_payment"
+                    type="object"
+                    string="Régler"
+                    icon="fa-money"
+                    class="btn-primary"
+                    groups="primetech_association.group_association_meeting_treasurer,primetech_association.group_association_manager,primetech_association.group_association_admin"
+                    invisible="balance &lt;= 0"/>
+
+                <field
+                    name="company_id"
+                    groups="base.group_multi_company"
+                    optional="hide"/>
+
+            </list>
+
+        </field>
+    </record>
+
+    <record id="view_member_subscription_cycle_report_form" model="ir.ui.view">
+        <field name="name">association.member.subscription.cycle.report.form</field>
+        <field name="model">association.member.subscription.cycle.report</field>
+        <field name="arch" type="xml">
+
+            <form string="Situation de cotisation" create="0" edit="0" delete="0">
+
+                <header>
+                    <button
+                        name="action_register_payment"
+                        type="object"
+                        string="Régler cette cotisation"
+                        icon="fa-money"
+                        class="btn-primary"
+                        groups="primetech_association.group_association_meeting_treasurer,primetech_association.group_association_manager,primetech_association.group_association_admin"
+                        invisible="balance &lt;= 0"/>
+                </header>
+
+                <sheet>
+
+                    <group>
+
+                        <field name="member_id"/>
+                        <field name="member_code"/>
+                        <field name="subscription_id"/>
+                        <field name="subscription_period_id"/>
+                        <field name="subscription_line_id"/>
+                        <field name="period_state" widget="badge"/>
+
+                    </group>
+
+                    <group>
+
+                        <field name="amount_due" string="Montant cotisation"/>
+                        <field name="amount_paid" string="Montant payé"/>
+                        <field name="balance" string="Reste à payer"/>
+                        <field name="payment_state" widget="badge"/>
+                        <field name="last_payment_date"/>
+
+                    </group>
+
+                </sheet>
+
+            </form>
+
+        </field>
+    </record>
+
+    <!-- ========================================================= -->
     <!-- VUE RECHERCHE                                             -->
     <!-- ========================================================= -->
 
@@ -187,6 +371,7 @@
                         type="object"
                         class="btn-secondary"
                         icon="fa-users"
+                        groups="primetech_association.group_association_meeting_treasurer,primetech_association.group_association_manager,primetech_association.group_association_admin"
                         invisible="state != 'draft'"/>
 
                     <button
@@ -195,6 +380,7 @@
                         type="object"
                         class="btn-primary"
                         icon="fa-check"
+                        groups="primetech_association.group_association_meeting_treasurer,primetech_association.group_association_manager,primetech_association.group_association_admin"
                         invisible="state != 'draft'"/>
 
                     <button
@@ -203,6 +389,7 @@
                         type="object"
                         class="btn-primary"
                         icon="fa-play"
+                        groups="primetech_association.group_association_meeting_treasurer,primetech_association.group_association_manager,primetech_association.group_association_admin"
                         invisible="state != 'confirmed'"/>
 
                     <button
@@ -211,6 +398,7 @@
                         type="object"
                         class="btn-primary"
                         icon="fa-lock"
+                        groups="primetech_association.group_association_meeting_treasurer,primetech_association.group_association_manager,primetech_association.group_association_admin"
                         invisible="state != 'running'"/>
 
                     <button
@@ -219,6 +407,7 @@
                         type="object"
                         class="btn-secondary"
                         icon="fa-lock"
+                        groups="primetech_association.group_association_meeting_treasurer,primetech_association.group_association_manager,primetech_association.group_association_admin"
                         confirm="Les pénalités arrivées à échéance seront ajoutées définitivement aux montants dus. Continuer ?"
                         invisible="state != 'running' or not penalty_enabled"/>
 
@@ -228,7 +417,7 @@
                             type="object"
                             class="btn-secondary"
                             icon="fa-check-circle"
-                            groups="primetech_association.group_association_manager,primetech_association.group_association_admin"
+                            groups="primetech_association.group_association_meeting_treasurer,primetech_association.group_association_manager,primetech_association.group_association_admin"
                             invisible="state != 'running' or not current_period_id"
                             confirm="Voulez-vous lancer la procédure de clôture du cycle courant ?"
                         />
@@ -239,7 +428,7 @@
                             type="object"
                             class="btn-primary"
                             icon="fa-forward"
-                            groups="primetech_association.group_association_manager,primetech_association.group_association_admin"
+                            groups="primetech_association.group_association_meeting_treasurer,primetech_association.group_association_manager,primetech_association.group_association_admin"
                             invisible="state != 'running' or current_period_id"
                             confirm="Voulez-vous ouvrir le cycle suivant ?"
                         />
@@ -250,6 +439,7 @@
                         type="object"
                         class="btn-secondary"
                         icon="fa-times"
+                        groups="primetech_association.group_association_manager,primetech_association.group_association_admin"
                         invisible="state in ('closed', 'cancelled')"/>
 
                     <button
@@ -258,6 +448,7 @@
                         type="object"
                         class="btn-secondary"
                         icon="fa-undo"
+                        groups="primetech_association.group_association_manager,primetech_association.group_association_admin"
                         invisible="state not in ('confirmed', 'cancelled')"/>
 
                     <field
@@ -287,6 +478,7 @@
                             icon="fa-users"
                             type="object"
                             name="action_generate_members"
+                            groups="primetech_association.group_association_meeting_treasurer,primetech_association.group_association_manager,primetech_association.group_association_admin"
                             invisible="state != 'draft'"
                         >
 
@@ -306,7 +498,8 @@
                             class="oe_stat_button"
                             type="object"
                             name="action_view_payments"
-                            icon="fa-money">
+                            icon="fa-money"
+                            groups="primetech_association.group_association_meeting_treasurer,primetech_association.group_association_manager,primetech_association.group_association_admin">
 
                             <field
                                 name="payment_count"
@@ -1198,6 +1391,7 @@
                                         string="Payer"
                                         icon="fa-money"
                                         class="btn-primary"
+                                        groups="primetech_association.group_association_meeting_treasurer,primetech_association.group_association_manager,primetech_association.group_association_admin"
                                         invisible="
                                             payment_state == 'paid'
                                             or balance &lt;= 0
@@ -1213,6 +1407,7 @@
                                         string="Compte membre"
                                         icon="fa-university"
                                         class="btn-secondary"
+                                        groups="primetech_association.group_association_meeting_treasurer,primetech_association.group_association_manager,primetech_association.group_association_admin"
                                         invisible="
                                             payment_state == 'paid'
                                             or balance &lt;= 0

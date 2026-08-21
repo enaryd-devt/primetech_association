@@ -278,6 +278,7 @@
                         name="action_generate_attendances"
                         string="Générer les membres"
                         type="object"
+                        groups="primetech_association.group_association_meeting_president,primetech_association.group_association_meeting_secretary,primetech_association.group_association_manager,primetech_association.group_association_admin"
                         class="btn-secondary"
                         invisible="state != 'draft'"
                     />
@@ -286,6 +287,7 @@
                         name="action_convocate"
                         string="Convoquer"
                         type="object"
+                        groups="primetech_association.group_association_meeting_president,primetech_association.group_association_meeting_secretary,primetech_association.group_association_manager,primetech_association.group_association_admin"
                         class="oe_highlight"
                         invisible="state != 'draft'"
                     />
@@ -294,6 +296,7 @@
                         name="action_start_meeting"
                         string="Ouvrir la séance"
                         type="object"
+                        groups="primetech_association.group_association_meeting_president,primetech_association.group_association_manager,primetech_association.group_association_admin"
                         class="oe_highlight"
                         invisible="state != 'convoked'"
                     />
@@ -302,6 +305,7 @@
                         name="action_close_meeting"
                         string="Clôturer la séance"
                         type="object"
+                        groups="primetech_association.group_association_meeting_president,primetech_association.group_association_manager,primetech_association.group_association_admin"
                         class="oe_highlight"
                         invisible="state != 'in_progress'"
                         confirm="Voulez-vous réellement clôturer cette réunion ?"
@@ -311,6 +315,7 @@
                         name="action_approve_minutes"
                         string="Approuver le procès-verbal"
                         type="object"
+                        groups="primetech_association.group_association_meeting_president,primetech_association.group_association_manager,primetech_association.group_association_admin"
                         class="btn-secondary"
                         invisible="state != 'closed' or minutes_approved"
                     />
@@ -328,6 +333,7 @@
                         name="action_cancel"
                         string="Annuler"
                         type="object"
+                        groups="primetech_association.group_association_manager,primetech_association.group_association_admin"
                         invisible="state in ('closed', 'cancelled')"
                         confirm="Voulez-vous réellement annuler cette réunion ?"
                     />
@@ -336,6 +342,7 @@
                         name="action_reset_draft"
                         string="Remettre en brouillon"
                         type="object"
+                        groups="primetech_association.group_association_manager,primetech_association.group_association_admin"
                         invisible="state != 'cancelled'"
                     />
 
@@ -362,6 +369,7 @@
                             class="oe_stat_button"
                             type="object"
                             name="action_generate_attendances"
+                            groups="primetech_association.group_association_meeting_president,primetech_association.group_association_meeting_secretary,primetech_association.group_association_manager,primetech_association.group_association_admin"
                             icon="fa-users"
                             invisible="state != 'draft'">
 
@@ -926,6 +934,7 @@
                                     <button
                                         name="action_refresh_subscription_cycle"
                                         type="object"
+                                        groups="primetech_association.group_association_meeting_treasurer,primetech_association.group_association_manager,primetech_association.group_association_admin"
                                         string="Actualiser"
                                         icon="fa-refresh"
                                         class="btn-secondary"
@@ -943,6 +952,7 @@
                                     <button
                                         name="action_settle_meeting_pot"
                                         type="object"
+                                        groups="primetech_association.group_association_meeting_treasurer,primetech_association.group_association_manager,primetech_association.group_association_admin"
                                         string="Finaliser le cycle et solder la caisse"
                                         icon="fa-bank"
                                         class="btn-primary"
@@ -1371,6 +1381,7 @@
                                             <button
                                                 name="action_create_payment"
                                                 type="object"
+                                                groups="primetech_association.group_association_meeting_treasurer,primetech_association.group_association_manager,primetech_association.group_association_admin"
                                                 string="Payer"
                                                 icon="fa-money"
                                                 class="btn-primary"
@@ -1387,6 +1398,7 @@
                                             <button
                                                 name="action_pay_from_member_account"
                                                 type="object"
+                                                groups="primetech_association.group_association_meeting_treasurer,primetech_association.group_association_manager,primetech_association.group_association_admin"
                                                 string="Compte membre"
                                                 icon="fa-university"
                                                 class="btn-secondary"
@@ -1541,6 +1553,7 @@
                                             <button
                                                 name="action_allocate_subscription_pot"
                                                 type="object"
+                                                groups="primetech_association.group_association_meeting_treasurer,primetech_association.group_association_manager,primetech_association.group_association_admin"
                                                 string="Attribuer la cagnotte"
                                                 icon="fa-check"
                                                 class="btn-primary w-100"
@@ -1723,6 +1736,7 @@
                                     name="action_generate_attendances"
                                     string="Actualiser les membres de la cotisation"
                                     type="object"
+                                    groups="primetech_association.group_association_meeting_secretary,primetech_association.group_association_meeting_censor,primetech_association.group_association_manager,primetech_association.group_association_admin"
                                     class="btn-primary"
                                     icon="fa-users"
                                     invisible="state == 'closed' or not subscription_id"
@@ -2136,6 +2150,7 @@
                                     <button
                                         name="action_validate"
                                         type="object"
+                                        groups="primetech_association.group_association_meeting_president,primetech_association.group_association_meeting_censor,primetech_association.group_association_manager,primetech_association.group_association_admin"
                                         string="Valider"
                                         icon="fa-check"
                                         class="btn-link"
@@ -2151,6 +2166,7 @@
                                     <button
                                         name="action_cancel"
                                         type="object"
+                                        groups="primetech_association.group_association_meeting_president,primetech_association.group_association_meeting_censor,primetech_association.group_association_manager,primetech_association.group_association_admin"
                                         string="Annuler"
                                         icon="fa-times"
                                         class="btn-link"
@@ -2459,6 +2475,7 @@
                                                     name="action_mark_done"
                                                     string="Marquer comme réalisée"
                                                     type="object"
+                                                    groups="primetech_association.group_association_meeting_president,primetech_association.group_association_meeting_secretary,primetech_association.group_association_manager,primetech_association.group_association_admin"
                                                     class="oe_highlight"
                                                     invisible="result != 'adopted' or execution_state == 'done'"
                                                 />
@@ -2508,7 +2525,7 @@
                         <page
                             string="Procès-verbal"
                             name="minutes"
-                            groups="primetech_association.group_association_meeting_secretary,primetech_association.group_association_manager,primetech_association.group_association_admin">
+                            groups="primetech_association.group_association_meeting_president,primetech_association.group_association_meeting_secretary,primetech_association.group_association_manager,primetech_association.group_association_admin">
 
                             <!-- ========================================= -->
                             <!-- PV NON PRÉPARÉ                            -->
@@ -2557,6 +2574,7 @@
                                         <button
                                             name="action_prepare_minutes"
                                             type="object"
+                                            groups="primetech_association.group_association_meeting_secretary,primetech_association.group_association_manager,primetech_association.group_association_admin"
                                             string="Préparer le procès-verbal"
                                             icon="fa-magic"
                                             class="btn-primary"
@@ -2610,6 +2628,7 @@
                                         <button
                                             name="action_prepare_minutes"
                                             type="object"
+                                            groups="primetech_association.group_association_meeting_secretary,primetech_association.group_association_manager,primetech_association.group_association_admin"
                                             string="Actualiser la trame"
                                             icon="fa-refresh"
                                             class="btn-secondary"
@@ -2794,6 +2813,7 @@
 
                                     <field
                                         name="minutes_penalty_summary"
+                                        groups="primetech_association.group_association_meeting_president,primetech_association.group_association_meeting_secretary,primetech_association.group_association_manager,primetech_association.group_association_admin"
                                         nolabel="1"
                                         readonly="1"
                                     />
@@ -2816,6 +2836,7 @@
                                     <button
                                         name="action_prepare_minutes"
                                         type="object"
+                                        groups="primetech_association.group_association_meeting_secretary,primetech_association.group_association_manager,primetech_association.group_association_admin"
                                         string="Actualiser"
                                         icon="fa-refresh"
                                         class="btn-secondary"
@@ -2826,6 +2847,7 @@
                                     <button
                                         name="action_approve_minutes"
                                         type="object"
+                                        groups="primetech_association.group_association_meeting_president,primetech_association.group_association_manager,primetech_association.group_association_admin"
                                         string="Approuver le procès-verbal"
                                         icon="fa-check"
                                         class="btn-primary"

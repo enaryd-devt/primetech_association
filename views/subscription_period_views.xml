@@ -250,6 +250,7 @@
                     <button
                         name="action_start"
                         type="object"
+                        groups="primetech_association.group_association_meeting_treasurer,primetech_association.group_association_manager,primetech_association.group_association_admin"
                         string="Démarrer le cycle"
                         class="btn-primary"
                         icon="fa-play"
@@ -258,6 +259,7 @@
                     <button
                         name="action_close"
                         type="object"
+                        groups="primetech_association.group_association_meeting_treasurer,primetech_association.group_association_manager,primetech_association.group_association_admin"
                         string="Terminer le cycle"
                         class="btn-primary"
                         icon="fa-check"
@@ -266,6 +268,7 @@
                     <button
                         name="action_cancel"
                         type="object"
+                        groups="primetech_association.group_association_meeting_treasurer,primetech_association.group_association_manager,primetech_association.group_association_admin"
                         string="Annuler"
                         class="btn-secondary"
                         icon="fa-ban"
@@ -418,6 +421,139 @@
                     <!-- ========================================== -->
 
                     <notebook>
+
+                        <!-- ====================================== -->
+                        <!-- MEMBRES DU CYCLE                       -->
+                        <!-- ====================================== -->
+
+                        <page
+                            string="Membres du cycle"
+                            name="cycle_members"
+                            groups="primetech_association.group_association_meeting_treasurer,primetech_association.group_association_manager,primetech_association.group_association_admin">
+
+                            <field
+                                name="member_cycle_line_ids"
+                                readonly="1"
+                                context="{'subscription_period_report_id': id}">
+
+                                <list
+                                    create="0"
+                                    edit="0"
+                                    delete="0"
+                                    default_order="member_id"
+                                    decoration-danger="cycle_payment_state == 'not_paid'"
+                                    decoration-warning="cycle_payment_state == 'partial'"
+                                    decoration-success="cycle_payment_state == 'paid'">
+
+                                    <field
+                                        name="image_128"
+                                        string=""
+                                        widget="image"
+                                        optional="show"
+                                        options="{'size': [40, 40]}"/>
+
+                                    <field
+                                        name="member_code"
+                                        string="Code"/>
+
+                                    <field
+                                        name="member_id"
+                                        string="Membre"/>
+
+                                    <field
+                                        name="category_id"
+                                        string="Catégorie"
+                                        optional="show"/>
+
+                                    <field
+                                        name="function_id"
+                                        string="Fonction"
+                                        optional="show"/>
+
+                                    <field
+                                        name="cycle_base_amount_due"
+                                        string="Cotisation due"
+                                        sum="Cotisations dues"/>
+
+                                    <field
+                                        name="cycle_contribution_paid_amount"
+                                        string="Cotisation payée"
+                                        sum="Cotisations payées"/>
+
+                                    <field
+                                        name="cycle_subscription_balance_amount"
+                                        string="Reste cotisation"
+                                        sum="Reste cotisations"/>
+
+                                    <field
+                                        name="cycle_penalty_amount"
+                                        string="Pénalité due"
+                                        sum="Total pénalités"
+                                        optional="show"/>
+
+                                    <field
+                                        name="cycle_penalty_paid_amount"
+                                        string="Pénalité payée"
+                                        sum="Pénalités payées"
+                                        optional="show"/>
+
+                                    <field
+                                        name="cycle_penalty_balance_amount"
+                                        string="Reste pénalité"
+                                        sum="Reste pénalités"
+                                        optional="show"/>
+
+                                    <field
+                                        name="cycle_amount_due"
+                                        string="Total dû"
+                                        sum="Total dû"
+                                        optional="hide"/>
+
+                                    <field
+                                        name="cycle_amount_paid"
+                                        string="Total payé"
+                                        sum="Total payé"
+                                        optional="hide"/>
+
+                                    <field
+                                        name="cycle_balance"
+                                        string="Reste total"
+                                        sum="Total restant"/>
+
+                                    <field
+                                        name="cycle_is_late"
+                                        string="Retard"
+                                        widget="boolean_toggle"
+                                        readonly="1"
+                                        optional="show"/>
+
+                                    <field
+                                        name="cycle_late_days"
+                                        string="Jours"
+                                        optional="show"/>
+
+                                    <field
+                                        name="cycle_last_payment_date"
+                                        string="Dernier paiement"
+                                        optional="show"/>
+
+                                    <field
+                                        name="cycle_payment_state"
+                                        string="État"
+                                        widget="badge"
+                                        decoration-danger="cycle_payment_state == 'not_paid'"
+                                        decoration-warning="cycle_payment_state == 'partial'"
+                                        decoration-success="cycle_payment_state == 'paid'"/>
+
+                                    <field
+                                        name="currency_id"
+                                        column_invisible="1"/>
+
+                                </list>
+
+                            </field>
+
+                        </page>
 
                         <!-- ====================================== -->
                         <!-- BÉNÉFICIAIRES                          -->

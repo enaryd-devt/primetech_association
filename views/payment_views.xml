@@ -120,11 +120,11 @@
 
                 <header>
 
-                    <button name="action_collect" string="Encaisser" type="object" class="oe_highlight" invisible="state != 'draft'"/>
+                    <button name="action_collect" string="Encaisser" type="object" class="oe_highlight" groups="primetech_association.group_association_meeting_treasurer,primetech_association.group_association_manager,primetech_association.group_association_admin" invisible="state != 'draft'"/>
 
-                    <button name="action_confirm" string="Valider" type="object" class="oe_highlight" invisible="state != 'collected'"/>
+                    <button name="action_confirm" string="Valider" type="object" class="oe_highlight" groups="primetech_association.group_association_meeting_treasurer,primetech_association.group_association_manager,primetech_association.group_association_admin" invisible="state != 'collected'"/>
 
-                    <button name="action_cancel" string="Annuler" type="object" class="btn-secondary" invisible="state in ('confirmed', 'cancelled')"/>
+                    <button name="action_cancel" string="Annuler" type="object" class="btn-secondary" groups="primetech_association.group_association_meeting_treasurer,primetech_association.group_association_manager,primetech_association.group_association_admin" invisible="state in ('confirmed', 'cancelled')"/>
 
                     <field name="state" widget="statusbar" statusbar_visible="draft,collected,confirmed,cancelled"/>
 
@@ -372,8 +372,8 @@
                         <div class="alert alert-info" role="alert">
 
                             Seules les cotisations du membre
-                            avec un cycle ouvert et un solde
-                            restant sont proposées.
+                            avec un cycle en cours ou terminé
+                            et un solde restant sont proposées.
 
                         </div>
 
@@ -405,6 +405,12 @@
                                 <field name="balance_before_payment" string="Reste à payer" readonly="1"/>
 
                                 <field name="amount_paid" string="Montant affecté" sum="Total affecté"/>
+
+                                <field name="contribution_paid_amount" string="Part cotisation" readonly="1" optional="show" sum="Cotisation"/>
+
+                                <field name="penalty_paid_amount" string="Part pénalité" readonly="1" optional="show" sum="Pénalité"/>
+
+                                <field name="penalty_due_amount" string="Pénalité due" readonly="1" optional="hide"/>
 
                                 <field name="balance_after_payment" string="Reste après" readonly="1"/>
 

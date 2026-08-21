@@ -445,25 +445,53 @@ class AssociationPayment(models.Model):
         created_transactions = Transaction
         for payment in self:
             amounts_by_account = {}
+            previous_paid_by_cycle = {}
+            processed_paid_by_cycle = {}
             for line in payment.line_ids.filtered("subscription_line_id"):
                 subscription_line = line.subscription_line_id
                 subscription = subscription_line.subscription_id
                 account = subscription.penalty_account_id
-                penalty_due = subscription_line.penalty_amount or 0.0
-                if penalty_due <= 0:
-                    continue
-                previous = sum(subscription_line.payment_line_ids.filtered(
-                    lambda item: item != line
-                    and item.payment_id.state == "confirmed"
-                    and item.subscription_period_id == line.subscription_period_id
-                ).mapped("amount_paid"))
-                base_due = subscription.amount or 0.0
-                penalty_before = min(max(previous - base_due, 0.0), penalty_due)
-                penalty_after = min(
-                    max(previous + (line.amount_paid or 0.0) - base_due, 0.0),
-                    penalty_due,
+                period = (
+                    line.subscription_period_id
+                    or payment.subscription_period_id
                 )
-                supplement = max(penalty_after - penalty_before, 0.0)
+                if not period:
+                    continue
+                cycle_key = (
+                    subscription_line.id,
+                    period.id,
+                )
+                if cycle_key not in previous_paid_by_cycle:
+                    previous_paid_by_cycle[cycle_key] = (
+                        line._get_period_paid_for_line(
+                            subscription_line,
+                            period,
+                            exclude_payment=payment,
+                        )
+                    )
+                    processed_paid_by_cycle[cycle_key] = 0.0
+                already_paid = (
+                    previous_paid_by_cycle[cycle_key]
+                    + processed_paid_by_cycle[cycle_key]
+                )
+                breakdown = line._get_period_amount_breakdown_for_line(
+                    subscription_line,
+                    period,
+                    current_amount=line.amount_paid or 0.0,
+                    already_paid=already_paid,
+                )
+                penalty_due = breakdown[
+                    "penalty_due_amount"
+                ]
+                if penalty_due <= 0:
+                    processed_paid_by_cycle[cycle_key] += (
+                        line.amount_paid
+                        or 0.0
+                    )
+                    continue
+                supplement = breakdown[
+                    "penalty_current_amount"
+                ]
                 if supplement and not account:
                     raise ValidationError(_(
                         "Configurez le compte dédié aux pénalités sur la "
@@ -478,10 +506,11 @@ class AssociationPayment(models.Model):
                     })
                     details["amount"] += supplement
                     details["subscriptions"] |= subscription
-                    details["periods"] |= (
-                        line.subscription_period_id
-                        or payment.subscription_period_id
-                    )
+                    details["periods"] |= period
+                processed_paid_by_cycle[cycle_key] += (
+                    line.amount_paid
+                    or 0.0
+                )
             for account, details in amounts_by_account.items():
                 existing = Transaction.search([
                     ("origin_model", "=", "association.payment.penalty"),
@@ -1314,8 +1343,8 @@ class AssociationPayment(models.Model):
             "association.subscription.line"
         ]
 
-        Period = self.env[
-            "association.subscription.period"
+        PaymentLine = self.env[
+            "association.payment.line"
         ]
 
         for record in self:
@@ -1335,39 +1364,6 @@ class AssociationPayment(models.Model):
                 )
 
             # ======================================================
-            # CYCLES RÉELLEMENT OUVERTS
-            # ======================================================
-
-            running_periods = Period.search(
-                [
-                    (
-                        "state",
-                        "=",
-                        "running",
-                    ),
-                    (
-                        "company_id",
-                        "=",
-                        record.company_id.id,
-                    ),
-                ]
-            )
-
-            running_subscription_ids = (
-                running_periods.mapped(
-                    "subscription_id"
-                ).ids
-            )
-
-            if not running_subscription_ids:
-                raise UserError(
-                    _(
-                        "Aucune cotisation ne possède "
-                        "actuellement un cycle ouvert."
-                    )
-                )
-
-            # ======================================================
             # COTISATIONS AUXQUELLES LE MEMBRE APPARTIENT
             # ======================================================
 
@@ -1379,11 +1375,6 @@ class AssociationPayment(models.Model):
                         record.member_id.id,
                     ),
                     (
-                        "subscription_id",
-                        "in",
-                        running_subscription_ids,
-                    ),
-                    (
                         "subscription_id.company_id",
                         "=",
                         record.company_id.id,
@@ -1392,50 +1383,60 @@ class AssociationPayment(models.Model):
             )
 
             # ======================================================
-            # CONSERVER UNIQUEMENT LES COTISATIONS NON SOLDÉES
-            # POUR LE CYCLE OUVERT
+            # CONSERVER LES CYCLES EN COURS OU TERMINÉS NON SOLDÉS
             # ======================================================
 
-            available_lines = (
-                subscription_lines.filtered(
-                    lambda line: (
-                        line.balance or 0.0
-                    ) > 0
+            existing_pairs = {
+                (
+                    line.subscription_line_id.id,
+                    line.subscription_period_id.id,
                 )
-            )
-
-            existing_subscription_line_ids = set(
-                record.line_ids.mapped(
-                    "subscription_line_id"
-                ).ids
-            )
+                for line in record.line_ids
+                if (
+                    line.subscription_line_id
+                    and line.subscription_period_id
+                )
+            }
 
             new_lines = []
 
-            for subscription_line in available_lines:
+            for subscription_line in subscription_lines:
 
-                if (
-                    subscription_line.id
-                    in existing_subscription_line_ids
-                ):
-                    continue
-
-                new_lines.append(
-                    (
-                        0,
-                        0,
-                        {
-                            "subscription_line_id":
-                                subscription_line.id,
-
-                            "subscription_id":
-                                subscription_line.subscription_id.id,
-
-                            "amount_paid":
-                                0.0,
-                        },
-                    )
+                periods = PaymentLine._get_unsettled_periods_for_line(
+                    subscription_line
                 )
+
+                for period in periods:
+
+                    pair = (
+                        subscription_line.id,
+                        period.id,
+                    )
+
+                    if pair in existing_pairs:
+                        continue
+
+                    existing_pairs.add(pair)
+
+                    new_lines.append(
+                        (
+                            0,
+                            0,
+                            {
+                                "subscription_line_id":
+                                    subscription_line.id,
+
+                                "subscription_id":
+                                    subscription_line.subscription_id.id,
+
+                                "subscription_period_id":
+                                    period.id,
+
+                                "amount_paid":
+                                    0.0,
+                            },
+                        )
+                    )
 
             if not new_lines:
                 raise UserError(
@@ -1443,7 +1444,8 @@ class AssociationPayment(models.Model):
                         "Aucune cotisation disponible n'a été "
                         "trouvée pour le membre %(member)s.\n\n"
                         "Le membre doit appartenir à la cotisation "
-                        "et la cotisation doit posséder un cycle ouvert."
+                        "et posséder au moins un cycle en cours ou "
+                        "terminé avec un solde restant."
                     )
                     % {
                         "member":
@@ -1457,8 +1459,8 @@ class AssociationPayment(models.Model):
 
             record.message_post(
                 body=_(
-                    "%(count)s cotisation(s) avec cycle ouvert "
-                    "chargée(s) pour %(member)s."
+                    "%(count)s cycle(s) de cotisation non soldé(s) "
+                    "chargé(s) pour %(member)s."
                 )
                 % {
                     "count":
@@ -1505,53 +1507,13 @@ class AssociationPayment(models.Model):
             lines = record.line_ids.sorted(
                 key=lambda line: (
                     (
-                        line.subscription_id.current_period_id.due_date
-                        if line.subscription_id.current_period_id
+                        line.subscription_period_id.due_date
+                        if line.subscription_period_id
                         else fields.Date.today()
                     ),
                     line.id or 0,
                 )
             )
-
-            # ==========================================================
-            # APPLIQUER LA PÉNALITÉ DU CYCLE
-            # ==========================================================
-
-            member_period = self.env[
-                "association.subscription.period"
-            ].search(
-                [
-                    (
-                        "subscription_line_id",
-                        "=",
-                        subscription_line.id,
-                    ),
-                    (
-                        "period_start_date",
-                        "=",
-                        period.period_start_date,
-                    ),
-                    (
-                        "period_end_date",
-                        "=",
-                        period.period_end_date,
-                    ),
-                ],
-                limit=1,
-            )
-
-            if member_period:
-
-                member_period._apply_late_penalty()
-
-                member_period.invalidate_recordset(
-                    [
-                        "penalty_amount",
-                        "amount_paid",
-                        "balance",
-                        "payment_state",
-                    ]
-                )
 
             for line in lines:
                 balance_to_pay = max(
@@ -1772,6 +1734,8 @@ class AssociationPayment(models.Model):
             # CONTRÔLE DES COTISATIONS
             # ======================================================
 
+            allocated_by_cycle = {}
+
             for line in record.line_ids:
 
                 subscription_line = (
@@ -1795,7 +1759,7 @@ class AssociationPayment(models.Model):
 
                     raise ValidationError(
                         _(
-                            "Aucun cycle courant n'est ouvert "
+                            "Sélectionnez le cycle à régler "
                             "pour la cotisation "
                             "%(subscription)s."
                         )
@@ -1805,13 +1769,16 @@ class AssociationPayment(models.Model):
                         }
                     )
 
-                if period.state != "running":
+                if period.state not in (
+                    "running",
+                    "closed",
+                ):
 
                     raise ValidationError(
                         _(
                             "Le cycle %(cycle)s de la "
                             "cotisation %(subscription)s "
-                            "n'est pas en cours."
+                            "n'est ni en cours ni terminé."
                         )
                         % {
                             "cycle":
@@ -1829,54 +1796,19 @@ class AssociationPayment(models.Model):
                 # Le paiement actuel est exclu.
                 # ==================================================
 
-                other_payment_lines = (
-                    subscription_line
-                    .payment_line_ids
-                    .filtered(
-                        lambda payment_line: (
-                            payment_line.payment_id
-                            and
-                            payment_line.payment_id.state
-                            == "confirmed"
-                            and
-                            payment_line.payment_id.id
-                            != record.id
-                            and payment_line.subscription_period_id == period
-                            and
-                            payment_line.payment_id.payment_date
-                            and
-                            payment_line.payment_id.payment_date
-                            >= period.period_start_date
-                            and
-                            payment_line.payment_id.payment_date
-                            <= period.period_end_date
-                        )
-                    )
+                already_paid = line._get_period_paid_for_line(
+                    subscription_line,
+                    period,
+                    exclude_payment=record,
                 )
 
                 # ==================================================
-                # TOTAL DÉJÀ PAYÉ
+                # MONTANT TOTAL DÛ SUR LE CYCLE SÉLECTIONNÉ
                 # ==================================================
 
-                already_paid = sum(
-                    other_payment_lines.mapped(
-                        "amount_paid"
-                    )
-                )
-
-                # ==================================================
-                # MONTANT TOTAL DÛ
-                #
-                # amount_due contient maintenant :
-                #
-                # COTISATION
-                # +
-                # PÉNALITÉ
-                # ==================================================
-
-                total_due = (
-                    subscription_line.amount_due
-                    or 0.0
+                total_due = line._get_period_due_for_line(
+                    subscription_line,
+                    period,
                 )
 
                 # ==================================================
@@ -1943,6 +1875,53 @@ class AssociationPayment(models.Model):
 
                             "already_paid":
                                 already_paid,
+
+                            "balance":
+                                remaining_amount,
+
+                            "currency":
+                                record.currency_id.name
+                                or "",
+                        }
+                    )
+
+                cycle_key = (
+                    subscription_line.id,
+                    period.id,
+                )
+
+                allocated_by_cycle[cycle_key] = (
+                    allocated_by_cycle.get(
+                        cycle_key,
+                        0.0,
+                    )
+                    + (line.amount_paid or 0.0)
+                )
+
+                if allocated_by_cycle[cycle_key] > remaining_amount + 0.01:
+
+                    raise ValidationError(
+                        _(
+                            "Le total affecté à %(member)s dépasse "
+                            "le reste à payer pour le cycle %(cycle)s.\n\n"
+                            "Cotisation : %(subscription)s\n"
+                            "Total affecté : "
+                            "%(allocated).2f %(currency)s\n"
+                            "Reste à payer : "
+                            "%(balance).2f %(currency)s"
+                        )
+                        % {
+                            "member":
+                                subscription_line.member_id.display_name,
+
+                            "cycle":
+                                period.display_name,
+
+                            "subscription":
+                                subscription.display_name,
+
+                            "allocated":
+                                allocated_by_cycle[cycle_key],
 
                             "balance":
                                 remaining_amount,
@@ -2024,6 +2003,24 @@ class AssociationPayment(models.Model):
                 }
             )
             penalty_transactions = record._create_penalty_fund_transactions()
+
+            SubscriptionPenaltyRecap = self.env[
+                "association.subscription.penalty.recap"
+            ]
+
+            for line in record.line_ids.filtered("subscription_line_id"):
+
+                period = (
+                    line.subscription_period_id
+                    or record.subscription_period_id
+                )
+
+                if period:
+
+                    SubscriptionPenaltyRecap._sync_for_line_period(
+                        line.subscription_line_id,
+                        period,
+                    )
 
             # ======================================================
             # PAIEMENT DEPUIS LE COMPTE MEMBRE
@@ -2195,6 +2192,24 @@ class AssociationPayment(models.Model):
             penalty_transactions.action_cancel()
 
             record._invalidate_subscription_lines()
+
+            SubscriptionPenaltyRecap = self.env[
+                "association.subscription.penalty.recap"
+            ]
+
+            for line in record.line_ids.filtered("subscription_line_id"):
+
+                period = (
+                    line.subscription_period_id
+                    or record.subscription_period_id
+                )
+
+                if period:
+
+                    SubscriptionPenaltyRecap._sync_for_line_period(
+                        line.subscription_line_id,
+                        period,
+                    )
 
             record.message_post(
                 body=_(

@@ -11,6 +11,8 @@
 #
 ##############################################################################
 
+from . import association_mail_thread
+
 from . import association_member_category
 from . import association_member_function
 from . import association_skill
@@ -25,6 +27,8 @@ from . import association_subscription_period
 
 from . import association_payment
 from . import association_payment_line
+from . import association_subscription_penalty_recap
+from . import association_member_subscription_cycle_report
 
 
 from . import association_donation

@@ -271,6 +271,7 @@
                         string="Valider"
                         type="object"
                         class="oe_highlight"
+                        groups="primetech_association.group_association_manager,primetech_association.group_association_admin"
                         invisible="state != 'draft'"
                     />
 
@@ -278,6 +279,7 @@
                         name="action_cancel"
                         string="Annuler"
                         type="object"
+                        groups="primetech_association.group_association_manager,primetech_association.group_association_admin"
                         invisible="state == 'cancelled'"
                         confirm="Voulez-vous réellement annuler cette recette ?"
                     />
@@ -286,6 +288,7 @@
                         name="action_reset_draft"
                         string="Remettre en brouillon"
                         type="object"
+                        groups="primetech_association.group_association_manager,primetech_association.group_association_admin"
                         invisible="state != 'cancelled'"
                     />
 
@@ -313,6 +316,7 @@
                             type="object"
                             class="oe_stat_button"
                             icon="fa-exchange"
+                            groups="primetech_association.group_association_manager,primetech_association.group_association_admin"
                             invisible="not fund_transaction_id">
 
                             <div class="o_stat_info">

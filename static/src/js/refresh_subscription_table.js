@@ -63,6 +63,22 @@ async function refreshSubscriptionTable(env, action) {
 
 
     // =========================================================
+    // LISTE DE RECAP DES COTISATIONS DU MEMBRE
+    // =========================================================
+
+    if (root.resModel === "association.member.subscription.cycle.report") {
+        if (typeof root.load === "function") {
+            await root.load();
+        } else if (typeof model.load === "function") {
+            await model.load();
+        }
+
+        model.notify();
+        return;
+    }
+
+
+    // =========================================================
     // FORMULAIRE COTISATION OU RÉUNION
     // =========================================================
 

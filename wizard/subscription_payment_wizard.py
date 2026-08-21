@@ -180,39 +180,61 @@ class AssociationSubscriptionPaymentWizard(models.TransientModel):
         )
 
         # ======================================================
-        # CYCLE ACTIF
+        # PREMIER CYCLE NON SOLDÉ
         # ======================================================
+
+        PaymentLine = self.env[
+            "association.payment.line"
+        ]
+
+        requested_period_id = (
+            self.env.context.get(
+                "default_subscription_period_id"
+            )
+            or self.env.context.get(
+                "default_period_id"
+            )
+        )
 
         period = self.env[
             "association.subscription.period"
-        ].search(
-            [
-                (
-                    "subscription_id",
-                    "=",
-                    subscription.id,
-                ),
-                (
-                    "state",
-                    "=",
+        ]
+
+        if requested_period_id:
+
+            requested_period = period.browse(
+                requested_period_id
+            ).exists()
+
+            if (
+                requested_period
+                and requested_period.subscription_id == subscription
+                and requested_period.company_id
+                == subscription_line.company_id
+                and requested_period.state
+                in (
                     "running",
-                ),
-                (
-                    "company_id",
-                    "=",
-                    subscription_line.company_id.id,
-                ),
-            ],
-            order="sequence desc, id desc",
-            limit=1,
-        )
+                    "closed",
+                )
+            ):
+
+                period = requested_period
+
+        if not period:
+
+            periods = PaymentLine._get_unsettled_periods_for_line(
+                subscription_line
+            )
+
+            period = periods[:1]
 
         if not period:
 
             raise ValidationError(
                 _(
-                    "Aucun cycle ouvert n'a été trouvé "
-                    "pour la cotisation %(subscription)s."
+                    "Aucun cycle en cours ou terminé avec "
+                    "un solde restant n'a été trouvé pour "
+                    "la cotisation %(subscription)s."
                 )
                 % {
                     "subscription":
@@ -224,17 +246,44 @@ class AssociationSubscriptionPaymentWizard(models.TransientModel):
         # RECALCUL
         # ======================================================
 
-        if hasattr(
+        amount_due = PaymentLine._get_period_due_for_line(
             subscription_line,
-            "_compute_current_cycle_tt",
-        ):
-            subscription_line._compute_current_cycle_payment()
+            period,
+        )
 
-        subscription_line.invalidate_recordset()
+        amount_paid = PaymentLine._get_period_paid_for_line(
+            subscription_line,
+            period,
+        )
+
+        balance = max(
+            amount_due - amount_paid,
+            0.0,
+        )
 
         # ======================================================
         # VALEURS
         # ======================================================
+
+        default_amount_received = self.env.context.get(
+            "default_amount_received"
+        )
+
+        amount_received = (
+            balance
+            if default_amount_received in (
+                None,
+                False,
+            )
+            else min(
+                max(
+                    default_amount_received
+                    or 0.0,
+                    0.0,
+                ),
+                balance,
+            )
+        )
 
         values.update(
             {
@@ -248,16 +297,16 @@ class AssociationSubscriptionPaymentWizard(models.TransientModel):
                     period.id,
 
                 "amount_due":
-                    subscription_line.amount_due,
+                    amount_due,
 
                 "amount_paid":
-                    subscription_line.amount_paid,
+                    amount_paid,
 
                 "balance":
-                    subscription_line.balance,
+                    balance,
 
                 "amount_received":
-                    subscription_line.balance,
+                    amount_received,
 
                 "receipt_account_id":
                     subscription.receipt_account_id.id,
@@ -615,31 +664,51 @@ class AssociationSubscriptionPaymentWizard(models.TransientModel):
             )
 
         # ======================================================
-        # CYCLE ACTIF
+        # CYCLE À RÉGLER
         # ======================================================
 
-        period = self.env["association.subscription.period"].search(
-            [
-                ("subscription_id", "=", subscription.id),
-                ("state", "=", "running"),
-                ("company_id", "=", subscription_line.company_id.id),
-            ],
-            order="sequence desc, id desc",
-            limit=1,
-        )
+        PaymentLine = self.env[
+            "association.payment.line"
+        ]
+
+        period = self.period_id
+
+        if not period:
+
+            period = PaymentLine._get_unsettled_periods_for_line(
+                subscription_line
+            )[:1]
+
+        if (
+            period
+            and period.state not in (
+                "running",
+                "closed",
+            )
+        ):
+            period = False
+
+        if (
+            period
+            and period.subscription_id != subscription
+        ):
+            period = False
+
+        if (
+            period
+            and period.company_id != subscription_line.company_id
+        ):
+            period = False
 
         if not period:
             raise ValidationError(
                 _(
-                    "Aucun cycle courant n'est ouvert pour la cotisation "
+                    "Aucun cycle en cours ou terminé avec "
+                    "un solde restant n'a été trouvé pour la cotisation "
                     "%(subscription)s."
                 )
                 % {"subscription": subscription.display_name}
             )
-
-        # ======================================================
-        # COMPTE DE VERSEMENT
-        # ======================================================
 
         self.period_id = period
         self.member_id = member
@@ -651,17 +720,20 @@ class AssociationSubscriptionPaymentWizard(models.TransientModel):
 
         self.env.flush_all()
 
-        subscription_line.invalidate_recordset([
-            "payment_line_ids",
-            "amount_due",
-            "amount_paid",
-            "balance",
-            "payment_state",
-            "payment_date",
-        ])
-        subscription_line._compute_current_cycle_payment()
+        amount_due = PaymentLine._get_period_due_for_line(
+            subscription_line,
+            period,
+        )
 
-        remaining_due = max(subscription_line.balance or 0.0, 0.0)
+        amount_paid = PaymentLine._get_period_paid_for_line(
+            subscription_line,
+            period,
+        )
+
+        remaining_due = max(
+            amount_due - amount_paid,
+            0.0,
+        )
         if remaining_due <= 0:
             raise ValidationError(
                 _(
@@ -712,6 +784,7 @@ class AssociationSubscriptionPaymentWizard(models.TransientModel):
                     {
                         "subscription_line_id": subscription_line.id,
                         "subscription_id": subscription.id,
+                        "subscription_period_id": period.id,
                         "amount_paid": allocated_amount,
                     },
                 ),
@@ -727,6 +800,7 @@ class AssociationSubscriptionPaymentWizard(models.TransientModel):
             payment_values["meeting_id"] = self.meeting_id.id
 
         payment = Payment.create(payment_values)
+        self.payment_id = payment.id
         self.env.flush_all()
 
         payment.invalidate_recordset(["line_ids", "state"])
@@ -822,6 +896,20 @@ class AssociationSubscriptionPaymentWizard(models.TransientModel):
         # ======================================================
 
         if isinstance(action, dict):
+            if (
+                action.get("res_model")
+                == "association.payment.surplus.wizard"
+            ):
+                context = dict(
+                    action.get("context")
+                    or {}
+                )
+                context[
+                    "default_payment_wizard_id"
+                ] = self.id
+                action[
+                    "context"
+                ] = context
 
             return action
 
@@ -889,6 +977,10 @@ class AssociationSubscriptionPaymentWizard(models.TransientModel):
         # ======================================================
 
         self._refresh_payment_subscription_lines(payment)
+
+        self.env[
+            "association.member.subscription.cycle.report"
+        ]._refresh_open_reports_for_payment(payment)
 
         subscription.invalidate_recordset()
         if hasattr(subscription, "_compute_statistics"):
@@ -1188,6 +1280,10 @@ class AssociationSubscriptionPaymentWizard(models.TransientModel):
         self._refresh_payment_subscription_lines(
             payment
         )
+
+        self.env[
+            "association.member.subscription.cycle.report"
+        ]._refresh_open_reports_for_payment(payment)
 
         # ======================================================
         # COTISATION

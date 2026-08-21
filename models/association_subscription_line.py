@@ -175,6 +175,85 @@ class AssociationSubscriptionLine(models.Model):
         store=True,
     )
 
+    cycle_amount_due = fields.Monetary(
+        string="Montant dû du cycle",
+        currency_field="currency_id",
+        compute="_compute_cycle_report_values",
+    )
+
+    cycle_amount_paid = fields.Monetary(
+        string="Montant payé du cycle",
+        currency_field="currency_id",
+        compute="_compute_cycle_report_values",
+    )
+
+    cycle_base_amount_due = fields.Monetary(
+        string="Cotisation due du cycle",
+        currency_field="currency_id",
+        compute="_compute_cycle_report_values",
+    )
+
+    cycle_contribution_paid_amount = fields.Monetary(
+        string="Cotisation payée du cycle",
+        currency_field="currency_id",
+        compute="_compute_cycle_report_values",
+    )
+
+    cycle_subscription_balance_amount = fields.Monetary(
+        string="Reste cotisation du cycle",
+        currency_field="currency_id",
+        compute="_compute_cycle_report_values",
+    )
+
+    cycle_balance = fields.Monetary(
+        string="Reste du cycle",
+        currency_field="currency_id",
+        compute="_compute_cycle_report_values",
+    )
+
+    cycle_payment_state = fields.Selection(
+        selection=[
+            ("not_paid", "Non payé"),
+            ("partial", "Partiellement payé"),
+            ("paid", "Payé"),
+        ],
+        string="État du cycle",
+        compute="_compute_cycle_report_values",
+    )
+
+    cycle_penalty_amount = fields.Monetary(
+        string="Pénalité du cycle",
+        currency_field="currency_id",
+        compute="_compute_cycle_report_values",
+    )
+
+    cycle_penalty_paid_amount = fields.Monetary(
+        string="Pénalité payée du cycle",
+        currency_field="currency_id",
+        compute="_compute_cycle_report_values",
+    )
+
+    cycle_penalty_balance_amount = fields.Monetary(
+        string="Reste pénalité du cycle",
+        currency_field="currency_id",
+        compute="_compute_cycle_report_values",
+    )
+
+    cycle_is_late = fields.Boolean(
+        string="En retard",
+        compute="_compute_cycle_report_values",
+    )
+
+    cycle_late_days = fields.Integer(
+        string="Jours de retard",
+        compute="_compute_cycle_report_values",
+    )
+
+    cycle_last_payment_date = fields.Date(
+        string="Dernier paiement du cycle",
+        compute="_compute_cycle_report_values",
+    )
+
     amount_received = fields.Monetary(
         string="Montant reçu",
         currency_field="currency_id",
@@ -491,6 +570,190 @@ class AssociationSubscriptionLine(models.Model):
                     "paid"
                 )
 
+    @api.depends_context("subscription_period_report_id")
+    @api.depends(
+        "subscription_id.amount",
+        "subscription_id.current_period_id",
+        "penalty_amount",
+        "payment_line_ids",
+        "payment_line_ids.amount_paid",
+        "payment_line_ids.payment_id",
+        "payment_line_ids.payment_id.state",
+        "payment_line_ids.payment_id.payment_date",
+        "payment_line_ids.payment_id.subscription_period_id",
+        "payment_line_ids.subscription_period_id",
+    )
+    def _compute_cycle_report_values(self):
+
+        PaymentLine = self.env[
+            "association.payment.line"
+        ]
+
+        Period = self.env[
+            "association.subscription.period"
+        ]
+
+        context_period_id = self.env.context.get(
+            "subscription_period_report_id"
+        )
+
+        context_period = (
+            Period.browse(context_period_id).exists()
+            if context_period_id
+            else Period
+        )
+
+        for record in self:
+
+            period = context_period
+
+            if (
+                not period
+                or period.subscription_id
+                != record.subscription_id
+            ):
+
+                period = record.subscription_id.current_period_id
+
+            record.cycle_amount_due = 0.0
+            record.cycle_amount_paid = 0.0
+            record.cycle_base_amount_due = 0.0
+            record.cycle_contribution_paid_amount = 0.0
+            record.cycle_subscription_balance_amount = 0.0
+            record.cycle_balance = 0.0
+            record.cycle_payment_state = "not_paid"
+            record.cycle_penalty_amount = 0.0
+            record.cycle_penalty_paid_amount = 0.0
+            record.cycle_penalty_balance_amount = 0.0
+            record.cycle_is_late = False
+            record.cycle_late_days = 0
+            record.cycle_last_payment_date = False
+
+            if not period:
+                continue
+
+            amount_due = PaymentLine._get_period_due_for_line(
+                record,
+                period,
+            )
+
+            amount_paid = PaymentLine._get_period_paid_for_line(
+                record,
+                period,
+            )
+
+            breakdown = PaymentLine._get_period_amount_breakdown_for_line(
+                record,
+                period,
+                current_amount=0.0,
+                already_paid=amount_paid,
+            )
+
+            payment_lines = PaymentLine.search(
+                [
+                    (
+                        "subscription_line_id",
+                        "=",
+                        record.id,
+                    ),
+                    (
+                        "payment_id.state",
+                        "=",
+                        "confirmed",
+                    ),
+                    "|",
+                    (
+                        "subscription_period_id",
+                        "=",
+                        period.id,
+                    ),
+                    "&",
+                    (
+                        "subscription_period_id",
+                        "=",
+                        False,
+                    ),
+                    (
+                        "payment_id.subscription_period_id",
+                        "=",
+                        period.id,
+                    ),
+                ]
+            )
+
+            payment_dates = [
+                payment.payment_date
+                for payment in payment_lines.mapped("payment_id")
+                if payment.payment_date
+            ]
+
+            last_payment_date = (
+                max(payment_dates)
+                if payment_dates
+                else False
+            )
+
+            balance = max(
+                amount_due - amount_paid,
+                0.0,
+            )
+
+            today = fields.Date.context_today(record)
+
+            late_days = (
+                max(
+                    (
+                        (
+                            last_payment_date
+                            or today
+                        )
+                        - period.due_date
+                    ).days,
+                    0,
+                )
+                if period.due_date
+                else 0
+            )
+
+            record.cycle_amount_due = amount_due
+            record.cycle_amount_paid = amount_paid
+            record.cycle_base_amount_due = breakdown[
+                "base_amount_due"
+            ]
+            record.cycle_contribution_paid_amount = breakdown[
+                "contribution_paid_amount"
+            ]
+            record.cycle_subscription_balance_amount = breakdown[
+                "subscription_balance_amount"
+            ]
+            record.cycle_balance = balance
+            record.cycle_penalty_amount = breakdown[
+                "penalty_due_amount"
+            ]
+            record.cycle_penalty_paid_amount = breakdown[
+                "penalty_paid_amount"
+            ]
+            record.cycle_penalty_balance_amount = breakdown[
+                "penalty_balance_amount"
+            ]
+            record.cycle_last_payment_date = last_payment_date
+            record.cycle_late_days = late_days
+            record.cycle_is_late = bool(
+                late_days > 0
+            )
+
+            if amount_paid <= 0:
+
+                record.cycle_payment_state = "not_paid"
+
+            elif balance > 0.01:
+
+                record.cycle_payment_state = "partial"
+
+            else:
+
+                record.cycle_payment_state = "paid"
+
     def _refresh_after_payment(self):
 
         lines = self.exists()
@@ -689,6 +952,8 @@ class AssociationSubscriptionLine(models.Model):
             if penalty_amount <= 0:
                 continue
 
+            period = subscription.current_period_id
+
             line.write(
                 {
                     "penalty_amount":
@@ -707,6 +972,14 @@ class AssociationSubscriptionLine(models.Model):
                         ),
                 }
             )
+
+            if period:
+                self.env[
+                    "association.subscription.penalty.recap"
+                ]._sync_for_line_period(
+                    line,
+                    period,
+                )
 
         self._compute_current_cycle_payment()
         return True
@@ -907,10 +1180,6 @@ class AssociationSubscriptionLine(models.Model):
             "association.payment.line"
         ]
 
-        Period = self.env[
-            "association.subscription.period"
-        ]
-
         # ======================================================
         # CONTRÔLES
         # ======================================================
@@ -939,43 +1208,19 @@ class AssociationSubscriptionLine(models.Model):
             )
 
         # ======================================================
-        # CYCLE COURANT
+        # CYCLE À RÉGLER
         # ======================================================
 
-        period = self.subscription_id.current_period_id
-
-        if (
-            not period
-            or period.state != "running"
-        ):
-
-            period = Period.search(
-                [
-                    (
-                        "subscription_id",
-                        "=",
-                        self.subscription_id.id,
-                    ),
-                    (
-                        "state",
-                        "=",
-                        "running",
-                    ),
-                    (
-                        "company_id",
-                        "=",
-                        self.company_id.id,
-                    ),
-                ],
-                order="sequence desc, id desc",
-                limit=1,
-            )
+        period = PaymentLine._get_unsettled_periods_for_line(
+            self
+        )[:1]
 
         if not period:
             raise ValidationError(
                 _(
-                    "Aucun cycle en cours n'a été trouvé "
-                    "pour la cotisation %(subscription)s."
+                    "Aucun cycle en cours ou terminé avec "
+                    "un solde restant n'a été trouvé pour "
+                    "la cotisation %(subscription)s."
                 )
                 % {
                     "subscription":
@@ -989,25 +1234,22 @@ class AssociationSubscriptionLine(models.Model):
 
         self.env.flush_all()
 
-        self.invalidate_recordset(
-            [
-                "payment_line_ids",
-                "amount_due",
-                "amount_paid",
-                "balance",
-                "payment_state",
-                "payment_date",
-            ]
+        amount_due = PaymentLine._get_period_due_for_line(
+            self,
+            period,
         )
 
-        self._compute_current_cycle_payment()
+        amount_paid = PaymentLine._get_period_paid_for_line(
+            self,
+            period,
+        )
 
         # ======================================================
         # MONTANT À PAYER
         # ======================================================
 
         amount_to_pay = max(
-            self.balance or 0.0,
+            amount_due - amount_paid,
             0.0,
         )
 
@@ -1096,18 +1338,6 @@ class AssociationSubscriptionLine(models.Model):
         # ======================================================
 
         payment_date = fields.Date.context_today(self)
-
-        if (
-            period.period_start_date
-            and payment_date < period.period_start_date
-        ):
-            payment_date = period.period_start_date
-
-        if (
-            period.period_end_date
-            and payment_date > period.period_end_date
-        ):
-            payment_date = period.period_end_date
 
         # When this action is triggered from a meeting, keep the payment in
         # the exact session/cycle displayed by that meeting.  Without these

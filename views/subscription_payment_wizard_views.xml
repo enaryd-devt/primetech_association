@@ -590,6 +590,7 @@
                         type="object"
                         string="Valider le paiement"
                         class="btn-primary"
+                        groups="primetech_association.group_association_meeting_treasurer,primetech_association.group_association_manager,primetech_association.group_association_admin"
                         icon="fa-check"/>
 
                     <button

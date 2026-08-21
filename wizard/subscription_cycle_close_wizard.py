@@ -735,18 +735,11 @@ class AssociationSubscriptionCycleCloseWizard(
                 period.available_amount or 0.0
             )
 
-            if amount_to_transfer <= 0:
+            if amount_to_transfer > 0.01:
 
-                raise ValidationError(
-                    _(
-                        "Aucun montant disponible "
-                        "ne peut être approvisionné."
-                    )
+                self._create_treasury_transaction(
+                    amount_to_transfer
                 )
-
-            self._create_treasury_transaction(
-                amount_to_transfer
-            )
 
         # A cycle can only be locked once every collected amount has either
         # been attributed or transferred to the financial account chosen in

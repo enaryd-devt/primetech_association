@@ -13,7 +13,17 @@ class MemberAccountSubscriptionPaymentWizard(models.TransientModel):
     )
     member_id = fields.Many2one(related="subscription_line_id.member_id", readonly=True)
     currency_id = fields.Many2one(related="subscription_line_id.currency_id", readonly=True)
-    amount_due = fields.Monetary(related="subscription_line_id.balance", currency_field="currency_id", readonly=True)
+    period_id = fields.Many2one(
+        "association.subscription.period",
+        compute="_compute_account_balance",
+        readonly=True,
+        string="Cycle à régler",
+    )
+    amount_due = fields.Monetary(
+        compute="_compute_account_balance",
+        currency_field="currency_id",
+        readonly=True,
+    )
     account_balance = fields.Monetary(
         compute="_compute_account_balance", currency_field="currency_id", readonly=True,
     )
@@ -24,12 +34,35 @@ class MemberAccountSubscriptionPaymentWizard(models.TransientModel):
     @api.depends("subscription_line_id", "subscription_line_id.member_id")
     def _compute_account_balance(self):
         Account = self.env["association.member.account"]
+        PaymentLine = self.env["association.payment.line"]
         for wizard in self:
+            period = PaymentLine._get_unsettled_periods_for_line(
+                wizard.subscription_line_id
+            )[:1]
+
+            amount_due = 0.0
+
+            if period:
+                due = PaymentLine._get_period_due_for_line(
+                    wizard.subscription_line_id,
+                    period,
+                )
+                paid = PaymentLine._get_period_paid_for_line(
+                    wizard.subscription_line_id,
+                    period,
+                )
+                amount_due = max(
+                    due - paid,
+                    0.0,
+                )
+
             account = Account.search([
                 ("member_id", "=", wizard.member_id.id),
                 ("company_id", "=", wizard.subscription_line_id.company_id.id),
                 ("active", "=", True),
             ], limit=1)
+            wizard.period_id = period
+            wizard.amount_due = amount_due
             wizard.account_balance = account.balance if account else 0.0
             wizard.amount_to_pay = min(
                 wizard.account_balance or 0.0,

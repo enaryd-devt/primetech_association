@@ -50,7 +50,21 @@
                 />
 
                 <field
+                    name="amount_paid"
+                    optional="show"
+                />
+
+                <field
                     name="amount_remaining"
+                    optional="show"
+                />
+
+                <field
+                    name="payment_state"
+                    widget="badge"
+                    decoration-danger="payment_state == 'not_paid'"
+                    decoration-warning="payment_state == 'partial'"
+                    decoration-success="payment_state == 'paid'"
                     optional="show"
                 />
 
@@ -104,6 +118,7 @@
                         string="Valider la sanction"
                         icon="fa-check"
                         class="btn-primary"
+                        groups="primetech_association.group_association_meeting_president,primetech_association.group_association_meeting_censor,primetech_association.group_association_manager,primetech_association.group_association_admin"
                         invisible="state != 'draft'"
                         confirm="Confirmez-vous la validation de cette sanction ?"
                     />
@@ -113,6 +128,7 @@
                         type="object"
                         string="Annuler"
                         icon="fa-times"
+                        groups="primetech_association.group_association_meeting_president,primetech_association.group_association_meeting_censor,primetech_association.group_association_manager,primetech_association.group_association_admin"
                         invisible="state not in ('draft', 'validated')"
                         confirm="Confirmez-vous l'annulation de cette sanction ?"
                     />
@@ -122,6 +138,7 @@
                         type="object"
                         string="Marquer exécutée"
                         icon="fa-check-circle"
+                        groups="primetech_association.group_association_meeting_president,primetech_association.group_association_meeting_censor,primetech_association.group_association_manager,primetech_association.group_association_admin"
                         invisible="state != 'validated'"
                     />
 
@@ -131,6 +148,7 @@
                         string="Action accomplie"
                         icon="fa-tasks"
                         class="btn-primary"
+                        groups="primetech_association.group_association_meeting_president,primetech_association.group_association_meeting_censor,primetech_association.group_association_manager,primetech_association.group_association_admin"
                         invisible="
                             state not in ('validated', 'executed')
                             or not corrective_action_required
@@ -145,6 +163,7 @@
                         string="Lever la sanction"
                         icon="fa-unlock"
                         class="btn-primary"
+                        groups="primetech_association.group_association_meeting_president,primetech_association.group_association_meeting_censor,primetech_association.group_association_manager,primetech_association.group_association_admin"
                         invisible="
                             state not in ('validated', 'executed')
                         "
@@ -714,6 +733,24 @@
                     domain="[('penalty_type', '=', 'fine')]"
                 />
 
+                <filter
+                    name="payment_not_paid"
+                    string="Non payé"
+                    domain="[('payment_state', '=', 'not_paid')]"
+                />
+
+                <filter
+                    name="payment_partial"
+                    string="Partiel"
+                    domain="[('payment_state', '=', 'partial')]"
+                />
+
+                <filter
+                    name="payment_paid"
+                    string="Payé"
+                    domain="[('payment_state', '=', 'paid')]"
+                />
+
                 <separator/>
 
                 <group expand="0" string="Regrouper par">
@@ -728,6 +765,12 @@
                         name="group_state"
                         string="Statut"
                         context="{'group_by': 'state'}"
+                    />
+
+                    <filter
+                        name="group_payment_state"
+                        string="État du paiement"
+                        context="{'group_by': 'payment_state'}"
                     />
 
                     <filter

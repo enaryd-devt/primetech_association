@@ -184,6 +184,7 @@
                     <button
                         name="action_validate"
                         type="object"
+                        groups="primetech_association.group_association_meeting_treasurer,primetech_association.group_association_manager,primetech_association.group_association_admin"
                         string="Valider"
                         class="btn-primary"
                         invisible="state != 'draft'"/>
@@ -191,12 +192,14 @@
                     <button
                         name="action_cancel"
                         type="object"
+                        groups="primetech_association.group_association_meeting_treasurer,primetech_association.group_association_manager,primetech_association.group_association_admin"
                         string="Annuler"
                         invisible="state == 'cancelled'"/>
 
                     <button
                         name="action_reset_draft"
                         type="object"
+                        groups="primetech_association.group_association_meeting_treasurer,primetech_association.group_association_manager,primetech_association.group_association_admin"
                         string="Remettre en brouillon"
                         invisible="state != 'cancelled'"/>
 

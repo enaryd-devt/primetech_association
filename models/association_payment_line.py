@@ -146,9 +146,9 @@ class AssociationPaymentLine(models.Model):
     # ==========================================================
 
     amount_due = fields.Monetary(
-        related="subscription_line_id.amount_due",
         string="Montant dû",
         currency_field="currency_id",
+        compute="_compute_payment_amounts",
         readonly=True,
     )
 
@@ -175,6 +175,48 @@ class AssociationPaymentLine(models.Model):
         string="Reste après paiement",
         currency_field="currency_id",
         compute="_compute_payment_amounts",
+    )
+
+    base_amount_due = fields.Monetary(
+        string="Cotisation due",
+        currency_field="currency_id",
+        compute="_compute_payment_amounts",
+        readonly=True,
+    )
+
+    contribution_paid_amount = fields.Monetary(
+        string="Part cotisation",
+        currency_field="currency_id",
+        compute="_compute_payment_amounts",
+        readonly=True,
+    )
+
+    subscription_balance_amount = fields.Monetary(
+        string="Reste cotisation",
+        currency_field="currency_id",
+        compute="_compute_payment_amounts",
+        readonly=True,
+    )
+
+    penalty_due_amount = fields.Monetary(
+        string="Pénalité due",
+        currency_field="currency_id",
+        compute="_compute_payment_amounts",
+        readonly=True,
+    )
+
+    penalty_paid_amount = fields.Monetary(
+        string="Part pénalité",
+        currency_field="currency_id",
+        compute="_compute_payment_amounts",
+        readonly=True,
+    )
+
+    penalty_balance_amount = fields.Monetary(
+        string="Reste pénalité",
+        currency_field="currency_id",
+        compute="_compute_payment_amounts",
+        readonly=True,
     )
 
     # ==========================================================
@@ -226,6 +268,439 @@ class AssociationPaymentLine(models.Model):
         string="Notes internes",
     )
 
+    # ==========================================================
+    # OUTILS - SITUATION D'UN MEMBRE PAR CYCLE
+    # ==========================================================
+
+    def _get_period_base_due_for_line(self, subscription_line, period):
+        """Return the subscription capital expected for one cycle."""
+
+        if not subscription_line or not period:
+            return 0.0
+
+        subscription = subscription_line.subscription_id
+
+        if not subscription:
+            return 0.0
+
+        return (
+            subscription.amount
+            or 0.0
+        )
+
+    def _get_period_penalty_due_for_line(self, subscription_line, period):
+        """Return the penalty expected for one member on one cycle."""
+
+        if not subscription_line or not period:
+            return 0.0
+
+        subscription = subscription_line.subscription_id
+
+        if not subscription:
+            return 0.0
+
+        current_period = subscription.current_period_id
+
+        if (
+            current_period
+            and period.id == current_period.id
+        ):
+
+            return (
+                subscription_line.penalty_amount
+                or 0.0
+            )
+
+        latest_closed_period = subscription.period_ids.filtered(
+            lambda item: item.state == "closed"
+        ).sorted(
+            key=lambda item: (
+                item.sequence,
+                item.id,
+            ),
+            reverse=True,
+        )[:1]
+
+        if (
+            subscription_line.penalty_applied
+            and latest_closed_period
+            and latest_closed_period.id == period.id
+        ):
+
+            return (
+                subscription_line.penalty_amount
+                or 0.0
+            )
+
+        if not self.env.context.get(
+            "ignore_subscription_penalty_recap"
+        ):
+
+            recap = self.env[
+                "association.subscription.penalty.recap"
+            ].with_context(
+                active_test=False
+            ).search(
+                [
+                    (
+                        "subscription_line_id",
+                        "=",
+                        subscription_line.id,
+                    ),
+                    (
+                        "subscription_period_id",
+                        "=",
+                        period.id,
+                    ),
+                ],
+                limit=1,
+            )
+
+            if recap and recap.penalty_due_amount > 0:
+
+                return (
+                    recap.penalty_due_amount
+                    or 0.0
+                )
+
+        snapshot = self.env[
+            "association.meeting.subscription.snapshot"
+        ].search(
+            [
+                (
+                    "session_id.period_id",
+                    "=",
+                    period.id,
+                ),
+                (
+                    "member_id",
+                    "=",
+                    subscription_line.member_id.id,
+                ),
+            ],
+            order="id desc",
+            limit=1,
+        )
+
+        if snapshot and snapshot.penalty_amount > 0:
+
+            return (
+                snapshot.penalty_amount
+                or 0.0
+            )
+
+        paid_amount = self._get_period_paid_for_line(
+            subscription_line,
+            period,
+        )
+
+        base_due = self._get_period_base_due_for_line(
+            subscription_line,
+            period,
+        )
+
+        return max(
+            paid_amount - base_due,
+            0.0,
+        )
+
+    def _get_period_due_for_line(self, subscription_line, period):
+        """Return the total amount expected for one member on one cycle."""
+
+        base_due = self._get_period_base_due_for_line(
+            subscription_line,
+            period,
+        )
+
+        penalty_due = self._get_period_penalty_due_for_line(
+            subscription_line,
+            period,
+        )
+
+        return (
+            base_due
+            + penalty_due
+        )
+
+    def _get_period_paid_for_line(
+        self,
+        subscription_line,
+        period,
+        exclude_line=None,
+        exclude_payment=None,
+    ):
+        """Return confirmed allocations already made on the selected cycle."""
+
+        if not subscription_line or not period:
+            return 0.0
+
+        domain = [
+            (
+                "subscription_line_id",
+                "=",
+                subscription_line.id,
+            ),
+            (
+                "payment_id.state",
+                "=",
+                "confirmed",
+            ),
+            "|",
+            (
+                "subscription_period_id",
+                "=",
+                period.id,
+            ),
+            "&",
+            (
+                "subscription_period_id",
+                "=",
+                False,
+            ),
+            (
+                "payment_id.subscription_period_id",
+                "=",
+                period.id,
+            ),
+        ]
+
+        if exclude_line and exclude_line.id:
+            domain.append(
+                (
+                    "id",
+                    "!=",
+                    exclude_line.id,
+                )
+            )
+
+        if exclude_payment and exclude_payment.id:
+            domain.append(
+                (
+                    "payment_id",
+                    "!=",
+                    exclude_payment.id,
+                )
+            )
+
+        payment_lines = self.search(domain)
+
+        return sum(
+            payment_lines.mapped("amount_paid")
+        )
+
+    def _get_unsettled_periods_for_line(
+        self,
+        subscription_line,
+        excluded_period_ids=None,
+    ):
+        """Return running or closed cycles that still have a balance."""
+
+        Period = self.env[
+            "association.subscription.period"
+        ]
+
+        if not subscription_line:
+            return Period
+
+        subscription = subscription_line.subscription_id
+
+        if not subscription:
+            return Period
+
+        excluded_period_ids = set(
+            excluded_period_ids
+            or []
+        )
+
+        periods = Period.search(
+            [
+                (
+                    "subscription_id",
+                    "=",
+                    subscription.id,
+                ),
+                (
+                    "company_id",
+                    "=",
+                    subscription_line.company_id.id,
+                ),
+                (
+                    "state",
+                    "in",
+                    [
+                        "running",
+                        "closed",
+                    ],
+                ),
+            ],
+            order="sequence asc, id asc",
+        )
+
+        available = Period
+
+        for period in periods:
+
+            if period.id in excluded_period_ids:
+                continue
+
+            amount_due = self._get_period_due_for_line(
+                subscription_line,
+                period,
+            )
+
+            already_paid = self._get_period_paid_for_line(
+                subscription_line,
+                period,
+            )
+
+            if (
+                amount_due > 0
+                and already_paid < amount_due - 0.01
+            ):
+                available |= period
+
+        return available
+
+    def _get_period_amount_breakdown_for_line(
+        self,
+        subscription_line,
+        period,
+        current_amount=0.0,
+        already_paid=None,
+        exclude_line=None,
+        exclude_payment=None,
+    ):
+        """Split payments between subscription capital and penalty."""
+
+        base_due = self._get_period_base_due_for_line(
+            subscription_line,
+            period,
+        )
+
+        penalty_due = self._get_period_penalty_due_for_line(
+            subscription_line,
+            period,
+        )
+
+        if already_paid is None:
+
+            already_paid = self._get_period_paid_for_line(
+                subscription_line,
+                period,
+                exclude_line=exclude_line,
+                exclude_payment=exclude_payment,
+            )
+
+        current_amount = (
+            current_amount
+            or 0.0
+        )
+
+        total_paid = (
+            already_paid
+            + current_amount
+        )
+
+        contribution_before = min(
+            already_paid,
+            base_due,
+        )
+
+        contribution_total = min(
+            total_paid,
+            base_due,
+        )
+
+        contribution_current = max(
+            contribution_total
+            - contribution_before,
+            0.0,
+        )
+
+        penalty_before = min(
+            max(
+                already_paid
+                - base_due,
+                0.0,
+            ),
+            penalty_due,
+        )
+
+        penalty_total = min(
+            max(
+                total_paid
+                - base_due,
+                0.0,
+            ),
+            penalty_due,
+        )
+
+        penalty_current = max(
+            penalty_total
+            - penalty_before,
+            0.0,
+        )
+
+        amount_due = (
+            base_due
+            + penalty_due
+        )
+
+        return {
+            "amount_due": amount_due,
+            "base_amount_due": base_due,
+            "penalty_due_amount": penalty_due,
+            "amount_paid": total_paid,
+            "contribution_paid_amount": contribution_total,
+            "contribution_current_amount": contribution_current,
+            "subscription_balance_amount": max(
+                base_due
+                - contribution_total,
+                0.0,
+            ),
+            "penalty_paid_amount": penalty_total,
+            "penalty_current_amount": penalty_current,
+            "penalty_balance_amount": max(
+                penalty_due
+                - penalty_total,
+                0.0,
+            ),
+            "balance": max(
+                amount_due
+                - total_paid,
+                0.0,
+            ),
+        }
+
+    def _set_amount_from_available_payment(self, balance):
+        for record in self:
+            payment = record.payment_id
+
+            if not payment:
+                continue
+
+            other_allocations = sum(
+                payment.line_ids
+                .filtered(
+                    lambda line: line != record
+                )
+                .mapped("amount_paid")
+            )
+
+            available_amount = max(
+                (
+                    payment.amount
+                    or 0.0
+                )
+                - other_allocations,
+                0.0,
+            )
+
+            record.amount_paid = min(
+                balance,
+                available_amount,
+            )
+
 
     # ==========================================================
     # CALCUL DES COTISATIONS ÉLIGIBLES
@@ -235,15 +710,13 @@ class AssociationPaymentLine(models.Model):
         "payment_id",
         "payment_id.member_id",
         "payment_id.company_id",
+        "payment_id.line_ids.subscription_id",
+        "payment_id.line_ids.subscription_period_id",
     )
     def _compute_eligible_subscription_ids(self):
 
         SubscriptionLine = self.env[
             "association.subscription.line"
-        ]
-
-        Period = self.env[
-            "association.subscription.period"
         ]
 
         for record in self:
@@ -266,47 +739,12 @@ class AssociationPaymentLine(models.Model):
                 continue
 
             # ======================================================
-            # RECHERCHER UNIQUEMENT LES CYCLES OUVERTS
-            # ======================================================
-
-            running_periods = Period.search(
-                [
-                    (
-                        "state",
-                        "=",
-                        "running",
-                    ),
-                    (
-                        "company_id",
-                        "=",
-                        payment.company_id.id,
-                    ),
-                ]
-            )
-
-            if not running_periods:
-                continue
-
-            # ======================================================
-            # COTISATIONS AYANT UN CYCLE OUVERT
-            # ======================================================
-
-            running_subscription_ids = (
-                running_periods
-                .mapped("subscription_id")
-                .ids
-            )
-
-            if not running_subscription_ids:
-                continue
-
-            # ======================================================
             # LIGNES DE COTISATION DU MEMBRE
             #
             # RÈGLE :
             #
             # 1. LE MEMBRE APPARTIENT À LA COTISATION
-            # 2. LA COTISATION A UN CYCLE OUVERT
+            # 2. UN CYCLE EN COURS OU TERMINÉ RESTE À RÉGLER
             # 3. MÊME FILIALE
             # ======================================================
 
@@ -316,11 +754,6 @@ class AssociationPaymentLine(models.Model):
                         "member_id",
                         "=",
                         payment.member_id.id,
-                    ),
-                    (
-                        "subscription_id",
-                        "in",
-                        running_subscription_ids,
                     ),
                     (
                         "subscription_id.company_id",
@@ -334,29 +767,46 @@ class AssociationPaymentLine(models.Model):
                 continue
 
             # ======================================================
-            # EXCLURE LES COTISATIONS DÉJÀ CHOISIES
+            # EXCLURE UNIQUEMENT LES CYCLES DÉJÀ CHOISIS
             # DANS LE MÊME PAIEMENT
             # ======================================================
 
-            selected_subscription_ids = (
-                payment.line_ids
-                .filtered(
-                    lambda line: (
-                        line != record
-                        and line.subscription_id
+            selected_periods_by_subscription = {}
+
+            for selected_line in payment.line_ids.filtered(
+                lambda line: (
+                    line != record
+                    and line.subscription_id
+                    and line.subscription_period_id
+                )
+            ):
+
+                selected_periods_by_subscription.setdefault(
+                    selected_line.subscription_id.id,
+                    set(),
+                ).add(
+                    selected_line.subscription_period_id.id
+                )
+
+            eligible_lines = self.env[
+                "association.subscription.line"
+            ]
+
+            for subscription_line in subscription_lines:
+
+                excluded_period_ids = (
+                    selected_periods_by_subscription.get(
+                        subscription_line.subscription_id.id,
+                        set(),
                     )
                 )
-                .mapped("subscription_id")
-                .ids
-            )
 
-            eligible_lines = subscription_lines.filtered(
-                lambda line: (
-                    line.subscription_id.id not in selected_subscription_ids
-                    and line.payment_state in ("not_paid", "partial")
-                    and (line.balance or 0.0) > 0.0
-                )
-            )
+                if self._get_unsettled_periods_for_line(
+                    subscription_line,
+                    excluded_period_ids,
+                ):
+
+                    eligible_lines |= subscription_line
 
             # ======================================================
             # RÉSULTAT
@@ -375,39 +825,92 @@ class AssociationPaymentLine(models.Model):
         "subscription_id",
         "payment_id.member_id",
         "payment_id.company_id",
+        "payment_id.line_ids.subscription_id",
+        "payment_id.line_ids.subscription_period_id",
         "subscription_line_id",
         "subscription_line_id.payment_line_ids.amount_paid",
         "subscription_line_id.payment_line_ids.payment_id.state",
         "subscription_line_id.payment_line_ids.subscription_period_id",
     )
     def _compute_eligible_period_ids(self):
-        """Offer open cycles whose balance is not settled for this member."""
-        Period = self.env["association.subscription.period"]
-        PaymentLine = self.env["association.payment.line"]
+        """Offer running or closed cycles with a remaining balance."""
+
+        SubscriptionLine = self.env[
+            "association.subscription.line"
+        ]
+
         for record in self:
+
             record.eligible_period_ids = False
-            if not record.subscription_id or not record.payment_id.member_id:
+
+            if not record.subscription_id:
                 continue
-            periods = Period.search([
-                ("subscription_id", "=", record.subscription_id.id),
-                ("company_id", "=", record.payment_id.company_id.id),
-                ("state", "=", "running"),
-            ])
-            available = Period
+
+            if not record.payment_id.member_id:
+                continue
+
+            if not record.payment_id.company_id:
+                continue
+
             subscription_line = record.subscription_line_id
+
             if not subscription_line:
-                subscription_line = self.env["association.subscription.line"].search([
-                    ("subscription_id", "=", record.subscription_id.id),
-                    ("member_id", "=", record.payment_id.member_id.id),
-                ], limit=1)
-            for period in periods:
-                paid = sum(PaymentLine.search([
-                    ("subscription_line_id", "=", subscription_line.id),
-                    ("subscription_period_id", "=", period.id),
-                    ("payment_id.state", "=", "confirmed"),
-                ]).mapped("amount_paid")) if subscription_line else 0.0
-                if paid < (record.subscription_id.amount or 0.0):
-                    available |= period
+
+                subscription_line = SubscriptionLine.search(
+                    [
+                        (
+                            "subscription_id",
+                            "=",
+                            record.subscription_id.id,
+                        ),
+                        (
+                            "member_id",
+                            "=",
+                            record.payment_id.member_id.id,
+                        ),
+                        (
+                            "company_id",
+                            "=",
+                            record.payment_id.company_id.id,
+                        ),
+                    ],
+                    limit=1,
+                )
+
+            if not subscription_line:
+                continue
+
+            selected_period_ids = (
+                record.payment_id.line_ids
+                .filtered(
+                    lambda line: (
+                        line != record
+                        and line.subscription_id
+                        == record.subscription_id
+                        and line.subscription_period_id
+                    )
+                )
+                .mapped("subscription_period_id")
+                .ids
+            )
+
+            available = self._get_unsettled_periods_for_line(
+                subscription_line,
+                selected_period_ids,
+            )
+
+            if (
+                record.subscription_period_id
+                and record.subscription_period_id.state in (
+                    "running",
+                    "closed",
+                )
+                and record.subscription_period_id.subscription_id
+                == record.subscription_id
+            ):
+
+                available |= record.subscription_period_id
+
             record.eligible_period_ids = available
 
     def _resolve_subscription_line(self):
@@ -473,14 +976,32 @@ class AssociationPaymentLine(models.Model):
             ):
                 raise ValidationError(_("Le cycle sélectionné ne correspond pas à la cotisation."))
 
+            if (
+                record.subscription_period_id
+                and record.subscription_period_id.state
+                not in (
+                    "running",
+                    "closed",
+                )
+            ):
+                raise ValidationError(
+                    _(
+                        "Le cycle sélectionné doit être en cours "
+                        "ou terminé."
+                    )
+                )
+
             if not record.subscription_period_id:
-                record.subscription_period_id = self.env[
-                    "association.subscription.period"
-                ].search([
-                    ("subscription_id", "=", record.subscription_id.id),
-                    ("state", "=", "running"),
-                    ("company_id", "=", record.payment_id.company_id.id),
-                ], order="sequence desc, id desc", limit=1)
+
+                periods = self._get_unsettled_periods_for_line(
+                    subscription_line
+                )
+
+                record.subscription_period_id = (
+                    periods[:1]
+                    if periods
+                    else False
+                )
 
         return True
 
@@ -502,6 +1023,7 @@ class AssociationPaymentLine(models.Model):
         if (
             "subscription_id" in vals
             or "payment_id" in vals
+            or "subscription_period_id" in vals
         ):
             self._resolve_subscription_line()
 
@@ -516,10 +1038,6 @@ class AssociationPaymentLine(models.Model):
 
         SubscriptionLine = self.env[
             "association.subscription.line"
-        ]
-
-        Period = self.env[
-            "association.subscription.period"
         ]
 
         for record in self:
@@ -542,57 +1060,6 @@ class AssociationPaymentLine(models.Model):
 
             if not payment.member_id:
                 continue
-
-            # ======================================================
-            # CONTRÔLER LE CYCLE OUVERT
-            # ======================================================
-
-            running_period = Period.search(
-                [
-                    (
-                        "subscription_id",
-                        "=",
-                        record.subscription_id.id,
-                    ),
-                    (
-                        "state",
-                        "=",
-                        "running",
-                    ),
-                    (
-                        "company_id",
-                        "=",
-                        payment.company_id.id,
-                    ),
-                ],
-                order="sequence desc, id desc",
-                limit=1,
-            )
-
-            if not running_period:
-
-                subscription_name = (
-                    record.subscription_id.display_name
-                )
-
-                record.subscription_id = False
-
-                return {
-                    "warning": {
-                        "title":
-                            _("Cycle fermé"),
-
-                        "message":
-                            _(
-                                "La cotisation %(subscription)s "
-                                "ne possède aucun cycle ouvert."
-                            )
-                            % {
-                                "subscription":
-                                    subscription_name,
-                            },
-                    }
-                }
 
             # ======================================================
             # RECHERCHER LA LIGNE DU MEMBRE
@@ -659,38 +1126,49 @@ class AssociationPaymentLine(models.Model):
             record.subscription_line_id = (
                 subscription_line
             )
-            record.subscription_period_id = running_period
 
-            # ======================================================
-            # MONTANT RESTANT DU CYCLE COURANT
-            # ======================================================
-
-            confirmed_lines = (
-                subscription_line.payment_line_ids.filtered(
-                    lambda payment_line: (
-                        payment_line.payment_id
-                        and
-                        payment_line.payment_id.state
-                        == "confirmed"
-                        and
-                        payment_line.payment_id.payment_date
-                        and
-                        running_period.period_start_date
-                        <= payment_line.payment_id.payment_date
-                        <= running_period.period_end_date
-                    )
-                )
+            periods = self._get_unsettled_periods_for_line(
+                subscription_line
             )
 
-            already_paid = sum(
-                confirmed_lines.mapped(
-                    "amount_paid"
+            if not periods:
+
+                subscription_name = (
+                    record.subscription_id.display_name
                 )
+
+                record.subscription_id = False
+                record.subscription_line_id = False
+
+                return {
+                    "warning": {
+                        "title":
+                            _("Cotisation soldée"),
+
+                        "message":
+                            _(
+                                "Aucun cycle en cours ou terminé "
+                                "avec un solde restant n'a été "
+                                "trouvé pour la cotisation "
+                                "%(subscription)s."
+                            )
+                            % {
+                                "subscription":
+                                    subscription_name,
+                            },
+                    }
+                }
+
+            record.subscription_period_id = periods[:1]
+
+            amount_due = self._get_period_due_for_line(
+                subscription_line,
+                record.subscription_period_id,
             )
 
-            amount_due = (
-                record.subscription_id.amount
-                or 0.0
+            already_paid = self._get_period_paid_for_line(
+                subscription_line,
+                record.subscription_period_id,
             )
 
             balance = max(
@@ -699,32 +1177,11 @@ class AssociationPaymentLine(models.Model):
             )
 
             # ======================================================
-            # MONTANT DISPONIBLE SUR LE PAIEMENT
-            # ======================================================
-
-            other_allocations = sum(
-                payment.line_ids
-                .filtered(
-                    lambda line: line != record
-                )
-                .mapped("amount_paid")
-            )
-
-            available_amount = max(
-                (
-                    payment.amount or 0.0
-                )
-                - other_allocations,
-                0.0,
-            )
-
-            # ======================================================
             # AFFECTATION AUTOMATIQUE
             # ======================================================
 
-            record.amount_paid = min(
-                balance,
-                available_amount,
+            record._set_amount_from_available_payment(
+                balance
             )
     
     # ==========================================================
@@ -733,12 +1190,17 @@ class AssociationPaymentLine(models.Model):
 
     @api.depends(
         "subscription_line_id",
-        "subscription_line_id.amount_due",
+        "subscription_id",
+        "subscription_id.amount",
+        "subscription_id.current_period_id",
+        "subscription_line_id.penalty_amount",
         "subscription_line_id.payment_line_ids.amount_paid",
         "subscription_line_id.payment_line_ids.payment_id.state",
+        "subscription_line_id.payment_line_ids.payment_id.subscription_period_id",
         "amount_paid",
         "payment_id.state",
         "subscription_period_id",
+        "subscription_period_id.state",
     )
     def _compute_payment_amounts(self):
 
@@ -748,9 +1210,16 @@ class AssociationPaymentLine(models.Model):
             # INITIALISATION OBLIGATOIRE
             # ======================================================
 
+            record.amount_due = 0.0
             record.amount_already_paid = 0.0
             record.balance_before_payment = 0.0
             record.balance_after_payment = 0.0
+            record.base_amount_due = 0.0
+            record.contribution_paid_amount = 0.0
+            record.subscription_balance_amount = 0.0
+            record.penalty_due_amount = 0.0
+            record.penalty_paid_amount = 0.0
+            record.penalty_balance_amount = 0.0
 
             # ======================================================
             # PAS ENCORE DE LIGNE TECHNIQUE
@@ -762,44 +1231,17 @@ class AssociationPaymentLine(models.Model):
             subscription_line = record.subscription_line_id
 
             # ======================================================
-            # MONTANT DÛ DU CYCLE COURANT
-            # ======================================================
-
-            amount_due = (
-                subscription_line.amount_due
-                or 0.0
-            )
-
-            # ======================================================
             # PAIEMENTS DÉJÀ CONFIRMÉS
             # ======================================================
 
-            confirmed_lines = (
-                subscription_line.payment_line_ids.filtered(
-                    lambda line: (
-                        line.payment_id.state == "confirmed"
-                        and line != record
-                        and line.subscription_period_id
-                        == record.subscription_period_id
-                    )
-                )
-            )
-
-            amount_already_paid = sum(
-                confirmed_lines.mapped("amount_paid")
+            amount_already_paid = record._get_period_paid_for_line(
+                subscription_line,
+                record.subscription_period_id,
+                exclude_line=record,
             )
 
             # ======================================================
             # RESTE AVANT LE PAIEMENT COURANT
-            # ======================================================
-
-            balance_before = max(
-                amount_due - amount_already_paid,
-                0.0,
-            )
-
-            # ======================================================
-            # MONTANT DE LA LIGNE COURANTE
             # ======================================================
 
             current_amount = (
@@ -807,9 +1249,29 @@ class AssociationPaymentLine(models.Model):
                 or 0.0
             )
 
+            breakdown = record._get_period_amount_breakdown_for_line(
+                subscription_line,
+                record.subscription_period_id,
+                current_amount=current_amount,
+                already_paid=amount_already_paid,
+            )
+
+            amount_due = breakdown[
+                "amount_due"
+            ]
+
+            balance_before = max(
+                amount_due - amount_already_paid,
+                0.0,
+            )
+
             # ======================================================
             # AFFECTATION
             # ======================================================
+
+            record.amount_due = (
+                amount_due
+            )
 
             record.amount_already_paid = (
                 amount_already_paid
@@ -821,6 +1283,36 @@ class AssociationPaymentLine(models.Model):
 
             record.balance_after_payment = max(
                 balance_before - current_amount,
+                0.0,
+            )
+
+            record.base_amount_due = breakdown[
+                "base_amount_due"
+            ]
+
+            record.contribution_paid_amount = breakdown[
+                "contribution_current_amount"
+            ]
+
+            record.subscription_balance_amount = max(
+                breakdown[
+                    "subscription_balance_amount"
+                ],
+                0.0,
+            )
+
+            record.penalty_due_amount = breakdown[
+                "penalty_due_amount"
+            ]
+
+            record.penalty_paid_amount = breakdown[
+                "penalty_current_amount"
+            ]
+
+            record.penalty_balance_amount = max(
+                breakdown[
+                    "penalty_balance_amount"
+                ],
                 0.0,
             )
 
@@ -1134,13 +1626,14 @@ class AssociationPaymentLine(models.Model):
 
     @api.depends(
         "amount_paid",
-        "penalty_amount",
+        "contribution_paid_amount",
+        "penalty_paid_amount",
     )
     def _compute_total_with_penalty(self):
         for record in self:
             record.total_with_penalty = (
-                (record.amount_paid or 0.0)
-                + (record.penalty_amount or 0.0)
+                (record.contribution_paid_amount or 0.0)
+                + (record.penalty_paid_amount or 0.0)
             )
 
     # ==========================================================
@@ -1189,37 +1682,54 @@ class AssociationPaymentLine(models.Model):
             if not record.subscription_line_id:
                 continue
 
-            # ======================================================
-            # RESTE À PAYER SUR LA COTISATION
-            # ======================================================
-
-            balance = (
-                record.balance_before_payment
-                or record.subscription_line_id.balance
-                or 0.0
-            )
-
-            # ======================================================
-            # MONTANT ENCORE DISPONIBLE SUR LE PAIEMENT
-            # ======================================================
-
-            payment = record.payment_id
-
-            if not payment:
-                continue
-
-            other_allocations = sum(
-                payment.line_ids
-                .filtered(
-                    lambda line:
-                        line != record
+            if not record.subscription_id:
+                record.subscription_id = (
+                    record.subscription_line_id.subscription_id
                 )
-                .mapped("amount_paid")
+
+            if (
+                record.subscription_period_id
+                and (
+                    record.subscription_period_id.subscription_id
+                    != record.subscription_id
+                    or record.subscription_period_id.state
+                    not in (
+                        "running",
+                        "closed",
+                    )
+                )
+            ):
+
+                record.subscription_period_id = False
+
+            if not record.subscription_period_id:
+
+                periods = record._get_unsettled_periods_for_line(
+                    record.subscription_line_id
+                )
+
+                record.subscription_period_id = (
+                    periods[:1]
+                    if periods
+                    else False
+                )
+
+            # ======================================================
+            # RESTE À PAYER SUR LE CYCLE
+            # ======================================================
+
+            amount_due = record._get_period_due_for_line(
+                record.subscription_line_id,
+                record.subscription_period_id,
             )
 
-            available_amount = max(
-                (payment.amount or 0.0)
-                - other_allocations,
+            already_paid = record._get_period_paid_for_line(
+                record.subscription_line_id,
+                record.subscription_period_id,
+            )
+
+            balance = max(
+                amount_due - already_paid,
                 0.0,
             )
 
@@ -1227,9 +1737,43 @@ class AssociationPaymentLine(models.Model):
             # AFFECTATION AUTOMATIQUE
             # ======================================================
 
-            record.amount_paid = min(
-                balance,
-                available_amount,
+            record._set_amount_from_available_payment(
+                balance
+            )
+
+    @api.onchange("subscription_period_id")
+    def _onchange_subscription_period_id(self):
+
+        for record in self:
+
+            record.amount_paid = 0.0
+
+            if not record.subscription_period_id:
+                continue
+
+            if not record.subscription_line_id:
+                record._resolve_subscription_line()
+
+            if not record.subscription_line_id:
+                continue
+
+            amount_due = record._get_period_due_for_line(
+                record.subscription_line_id,
+                record.subscription_period_id,
+            )
+
+            already_paid = record._get_period_paid_for_line(
+                record.subscription_line_id,
+                record.subscription_period_id,
+            )
+
+            balance = max(
+                amount_due - already_paid,
+                0.0,
+            )
+
+            record._set_amount_from_available_payment(
+                balance
             )
     
     # ==========================================================

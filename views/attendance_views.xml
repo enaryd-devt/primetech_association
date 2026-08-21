@@ -130,6 +130,7 @@
                     <button
                         name="action_confirm_convocation"
                         type="object"
+                        groups="primetech_association.group_association_meeting_secretary,primetech_association.group_association_meeting_censor,primetech_association.group_association_manager,primetech_association.group_association_admin"
                         string="Confirmer convocation"
                         class="btn-secondary"
                         invisible="convocation_confirmed or meeting_state == 'closed'"
@@ -138,6 +139,7 @@
                     <button
                         name="action_mark_present"
                         type="object"
+                        groups="primetech_association.group_association_meeting_secretary,primetech_association.group_association_meeting_censor,primetech_association.group_association_manager,primetech_association.group_association_admin"
                         string="Présent"
                         class="btn-primary"
                         invisible="meeting_state not in ('convoked', 'in_progress')"
@@ -146,6 +148,7 @@
                     <button
                         name="action_mark_late"
                         type="object"
+                        groups="primetech_association.group_association_meeting_secretary,primetech_association.group_association_meeting_censor,primetech_association.group_association_manager,primetech_association.group_association_admin"
                         string="En retard"
                         class="btn-warning"
                         invisible="meeting_state not in ('convoked', 'in_progress')"
@@ -154,6 +157,7 @@
                     <button
                         name="action_mark_absent"
                         type="object"
+                        groups="primetech_association.group_association_meeting_secretary,primetech_association.group_association_meeting_censor,primetech_association.group_association_manager,primetech_association.group_association_admin"
                         string="Absent"
                         class="btn-secondary"
                         invisible="meeting_state not in ('convoked', 'in_progress')"
@@ -162,6 +166,7 @@
                     <button
                         name="action_mark_excused"
                         type="object"
+                        groups="primetech_association.group_association_meeting_secretary,primetech_association.group_association_meeting_censor,primetech_association.group_association_manager,primetech_association.group_association_admin"
                         string="Absence justifiée"
                         invisible="meeting_state not in ('convoked', 'in_progress')"
                     />
@@ -169,6 +174,7 @@
                     <button
                         name="action_confirm_presence"
                         type="object"
+                        groups="primetech_association.group_association_meeting_secretary,primetech_association.group_association_meeting_censor,primetech_association.group_association_manager,primetech_association.group_association_admin"
                         string="Confirmer présence"
                         class="btn-primary"
                         invisible="state not in ('present', 'late') or presence_confirmed"
@@ -177,6 +183,7 @@
                     <button
                         name="action_validate_absence"
                         type="object"
+                        groups="primetech_association.group_association_meeting_secretary,primetech_association.group_association_meeting_censor,primetech_association.group_association_manager,primetech_association.group_association_admin"
                         string="Valider justification"
                         class="btn-primary"
                         invisible="state != 'excused' or absence_validated"

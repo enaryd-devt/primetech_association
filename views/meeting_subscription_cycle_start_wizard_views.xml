@@ -15,7 +15,7 @@
                     </group>
                 </sheet>
                 <footer>
-                    <button name="action_start_next_cycle" type="object" string="Démarrer le nouveau cycle" class="btn-primary"/>
+                    <button name="action_start_next_cycle" type="object" string="Démarrer le nouveau cycle" class="btn-primary" groups="primetech_association.group_association_meeting_treasurer,primetech_association.group_association_manager,primetech_association.group_association_admin"/>
                     <button string="Annuler" special="cancel" class="btn-secondary"/>
                 </footer>
             </form>
