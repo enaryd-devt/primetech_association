@@ -247,11 +247,12 @@
 
                         <group string="Organisation">
 
-                            <field name="company_id"/>
-
                             <field name="currency_id" readonly="1"/>
 
-                            <field name="responsible_id"/>
+                            <field
+                                name="responsible_id"
+                                domain="[('active', '=', True)]"
+                                options="{'no_create_edit': True}"/>
 
                             <field name="active"/>
 

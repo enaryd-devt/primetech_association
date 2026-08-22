@@ -1290,15 +1290,25 @@
                             string="Membres"
                             name="subscription_members">
 
-                            <field
-                                name="line_ids"
-                                readonly="state in ('closed', 'cancelled')">
+                            <div class="pt-member-filter-scope">
 
-                                <list
-                                    editable="bottom"
-                                    decoration-success="payment_state == 'paid'"
-                                    decoration-warning="payment_state == 'partial'"
-                                    decoration-danger="payment_state == 'not_paid'">
+                                <div class="pt-member-list-searchbar">
+                                    <i class="fa fa-search"/>
+                                    <input
+                                        type="search"
+                                        class="pt-member-list-search"
+                                        placeholder="Rechercher un membre..."/>
+                                </div>
+
+                                <field
+                                    name="line_ids"
+                                    readonly="state in ('closed', 'cancelled')">
+
+                                    <list
+                                        editable="bottom"
+                                        decoration-success="payment_state == 'paid'"
+                                        decoration-warning="payment_state == 'partial'"
+                                        decoration-danger="payment_state == 'not_paid'">
 
                                     <field
                                         name="sequence"
@@ -1417,9 +1427,11 @@
                                         name="currency_id"
                                         column_invisible="1"/>
 
-                                </list>
+                                    </list>
 
-                            </field>
+                                </field>
+
+                            </div>
 
                         </page>
 

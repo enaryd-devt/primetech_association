@@ -900,13 +900,13 @@
                             <!-- BARRE SUPÉRIEURE                                      -->
                             <!-- ===================================================== -->
 
-                            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 pb-2 mb-2 border-bottom">
+                            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 pb-1 mb-1 border-bottom">
 
                                 <div class="d-flex align-items-center gap-2">
 
                                     <div
                                         class="d-flex align-items-center justify-content-center rounded-3 bg-primary-subtle text-primary"
-                                        style="width: 38px; height: 38px;">
+                                        style="width: 32px; height: 32px;">
 
                                         <i
                                             class="fa fa-money fa-lg"
@@ -916,7 +916,7 @@
 
                                     <div>
 
-                                        <div class="fw-bold fs-5 lh-1">
+                                        <div class="fw-bold lh-1">
                                             Cotisations
                                         </div>
 
@@ -967,13 +967,13 @@
                             <!-- PILOTAGE DU CYCLE                                     -->
                             <!-- ===================================================== -->
 
-                            <div class="row g-2 mb-2">
+                            <div class="row g-1 mb-1">
 
                                 <!-- COTISATION -->
 
                                 <div class="col-12 col-lg-7">
 
-                                    <div class="border rounded-3 px-3 py-2 h-100">
+                                    <div class="border rounded-3 px-2 py-1 h-100">
 
                                         <div class="d-flex align-items-center mb-1">
 
@@ -1009,6 +1009,7 @@
 
                                             <field
                                                 name="subscription_session_id"
+                                                invisible="1"
                                                 string="Session chargée"
                                                 readonly="1"
                                                 options="{
@@ -1029,7 +1030,7 @@
 
                                 <div class="col-12 col-lg-5">
 
-                                    <div class="border rounded-3 px-2 py-2 h-100">
+                                    <div class="border rounded-3 px-2 py-1 h-100">
 
                                         <div class="row g-0 text-center h-100 align-items-center">
 
@@ -1089,7 +1090,7 @@
                             <!-- ===================================================== -->
 
                             <div
-                                class="alert alert-warning py-2 px-3 mb-2 border-0"
+                                class="alert alert-warning py-1 px-2 mb-1 border-0"
                                 role="alert"
                                 invisible="
                                     not subscription_id
@@ -1114,14 +1115,14 @@
                             <!-- ===================================================== -->
 
                             <div
-                                class="row g-2 mb-2"
+                                class="row g-1 mb-1"
                                 invisible="not subscription_period_id">
 
                                 <!-- COLLECTÉ -->
 
                                 <div class="col-6 col-lg-3">
 
-                                    <div class="border rounded-3 px-3 py-2 h-100">
+                                    <div class="border rounded-3 px-2 py-1 h-100">
 
                                         <div class="d-flex align-items-center justify-content-between">
 
@@ -1157,7 +1158,7 @@
 
                                 <div class="col-6 col-lg-3">
 
-                                    <div class="border rounded-3 px-3 py-2 h-100">
+                                    <div class="border rounded-3 px-2 py-1 h-100">
 
                                         <div class="d-flex align-items-center justify-content-between">
 
@@ -1193,7 +1194,7 @@
 
                                 <div class="col-6 col-lg-3">
 
-                                    <div class="border rounded-3 px-3 py-2 h-100">
+                                    <div class="border rounded-3 px-2 py-1 h-100">
 
                                         <div class="d-flex align-items-center justify-content-between">
 
@@ -1229,7 +1230,7 @@
 
                                 <div class="col-6 col-lg-3">
 
-                                    <div class="border rounded-3 px-3 py-2 h-100">
+                                    <div class="border rounded-3 px-2 py-1 h-100">
 
                                         <div class="d-flex align-items-center justify-content-between">
 
@@ -1264,12 +1265,12 @@
                             <!-- ===================================================== -->
 
                             <div
-                                class="border rounded-3 mb-2"
+                                class="pt-member-filter-scope border rounded-3 mb-1"
                                 invisible="not subscription_period_id">
 
                                 <!-- TITRE -->
 
-                                <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 px-3 py-2 border-bottom">
+                                <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 px-2 py-1 border-bottom">
 
                                     <div class="d-flex align-items-center">
 
@@ -1295,6 +1296,14 @@
 
 
                                 <!-- TABLEAU -->
+
+                                <div class="pt-member-list-searchbar">
+                                    <i class="fa fa-search"/>
+                                    <input
+                                        type="search"
+                                        class="pt-member-list-search"
+                                        placeholder="Rechercher un membre..."/>
+                                </div>
 
                                 <field
                                     name="subscription_line_ids"
@@ -1757,8 +1766,18 @@
                             <!-- LISTE                                                 -->
                             <!-- ===================================================== -->
 
-                            <field
-                                name="attendance_ids"
+                            <div class="pt-member-filter-scope">
+
+                                <div class="pt-member-list-searchbar">
+                                    <i class="fa fa-search"/>
+                                    <input
+                                        type="search"
+                                        class="pt-member-list-search"
+                                        placeholder="Rechercher un membre..."/>
+                                </div>
+
+                                <field
+                                    name="attendance_ids"
                                 nolabel="1"
                                 readonly="state == 'closed'"
                                 context="{
@@ -1890,7 +1909,9 @@
 
                                 </list>
 
-                            </field>
+                                </field>
+
+                            </div>
 
                         </page>
 
@@ -1978,7 +1999,7 @@
                                 role="alert"
                                 invisible="penalty_draft_count == 0">
 
-                                <div class="d-flex align-items-center">
+                                <div class="d-flex flex-wrap align-items-center gap-2">
 
                                     <div class="me-3">
 
@@ -2011,6 +2032,21 @@
 
                                     </div>
 
+                                    <div class="ms-auto">
+
+                                        <button
+                                            name="action_apply_draft_penalties"
+                                            type="object"
+                                            string="Appliquer"
+                                            icon="fa-check"
+                                            class="btn-primary"
+                                            groups="primetech_association.group_association_meeting_president,primetech_association.group_association_meeting_censor,primetech_association.group_association_manager,primetech_association.group_association_admin"
+                                            invisible="state == 'closed'"
+                                            confirm="Confirmez-vous l'application des sanctions en attente ? Les changements de la réunion seront enregistrés automatiquement."
+                                        />
+
+                                    </div>
+
                                 </div>
 
                             </div>
@@ -2035,6 +2071,11 @@
                                     decoration-warning="state == 'executed'"
                                     decoration-success="state == 'lifted'"
                                     decoration-danger="state == 'cancelled'">
+
+                                    <field
+                                        name="create_date"
+                                        column_invisible="1"
+                                    />
 
                                     <!-- ================================= -->
                                     <!-- MEMBRE                           -->
@@ -2089,13 +2130,27 @@
                                     <field
                                         name="amount"
                                         string="Montant"
+                                        invisible="penalty_type != 'fine'"
                                         optional="show"
                                     />
 
                                     <field
                                         name="amount_remaining"
                                         string="Reste"
+                                        invisible="penalty_type != 'fine'"
                                         optional="hide"
+                                    />
+
+                                    <field
+                                        name="payment_state"
+                                        string="Règlement"
+                                        widget="badge"
+                                        readonly="1"
+                                        optional="show"
+                                        decoration-muted="payment_state == 'not_payable'"
+                                        decoration-danger="payment_state == 'not_paid'"
+                                        decoration-warning="payment_state == 'partial'"
+                                        decoration-success="payment_state == 'paid'"
                                     />
 
 
@@ -2154,7 +2209,7 @@
                                         string="Valider"
                                         icon="fa-check"
                                         class="btn-link"
-                                        invisible="state != 'draft'"
+                                        invisible="not create_date or state != 'draft'"
                                         confirm="Confirmez-vous la validation de cette sanction ? La décision sera intégrée au procès-verbal."
                                     />
 

@@ -2,6 +2,7 @@
 
 from odoo import api, fields, models, _
 from odoo.exceptions import ValidationError, UserError
+from odoo.tools.sql import column_exists, table_exists
 
 
 class AssociationPenalty(models.Model):
@@ -212,11 +213,12 @@ class AssociationPenalty(models.Model):
 
     payment_state = fields.Selection(
         selection=[
+            ("not_payable", "Non payable"),
             ("not_paid", "Non payé"),
             ("partial", "Partiellement payé"),
             ("paid", "Payé"),
         ],
-        string="État du paiement",
+        string="Suivi du règlement",
         compute="_compute_payment_state",
         store=True,
         index=True,
@@ -375,10 +377,73 @@ class AssociationPenalty(models.Model):
     )
 
     # ==========================================================
+    # COHERENCE DES ANCIENS ENREGISTREMENTS
+    # ==========================================================
+
+    def init(self):
+
+        super().init()
+
+        columns = (
+            "penalty_type",
+            "amount",
+            "amount_paid",
+            "amount_remaining",
+            "payment_state",
+        )
+
+        if (
+            not table_exists(self.env.cr, self._table)
+            or not all(
+                column_exists(self.env.cr, self._table, column)
+                for column in columns
+            )
+        ):
+
+            return
+
+        self.env.cr.execute(
+            """
+            UPDATE association_penalty
+               SET amount = 0.0,
+                   amount_paid = 0.0,
+                   amount_remaining = 0.0,
+                   payment_state = 'not_payable'
+             WHERE COALESCE(penalty_type, 'observation') != 'fine'
+            """
+        )
+
+        self.env.cr.execute(
+            """
+            UPDATE association_penalty
+               SET amount_remaining = GREATEST(
+                       COALESCE(amount, 0.0)
+                       - COALESCE(amount_paid, 0.0),
+                       0.0
+                   ),
+                   payment_state = CASE
+                       WHEN COALESCE(amount, 0.0) <= 0.0
+                           THEN 'not_paid'
+                       WHEN GREATEST(
+                               COALESCE(amount, 0.0)
+                               - COALESCE(amount_paid, 0.0),
+                               0.0
+                           ) <= 0.01
+                           THEN 'paid'
+                       WHEN COALESCE(amount_paid, 0.0) <= 0.0
+                           THEN 'not_paid'
+                       ELSE 'partial'
+                   END
+             WHERE penalty_type = 'fine'
+            """
+        )
+
+    # ==========================================================
     # CALCUL DU RESTE
     # ==========================================================
 
     @api.depends(
+        "penalty_type",
         "amount",
         "amount_paid",
     )
@@ -386,8 +451,13 @@ class AssociationPenalty(models.Model):
 
         for record in self:
 
+            if record.penalty_type != "fine":
+
+                record.amount_remaining = 0.0
+                continue
+
             record.amount_remaining = max(
-                record.amount - record.amount_paid,
+                (record.amount or 0.0) - (record.amount_paid or 0.0),
                 0.0,
             )
 
@@ -416,11 +486,15 @@ class AssociationPenalty(models.Model):
                 or 0.0
             )
 
-            if (
-                record.penalty_type != "fine"
-                or amount <= 0
-                or amount_remaining <= 0.01
-            ):
+            if record.penalty_type != "fine":
+
+                record.payment_state = "not_payable"
+
+            elif amount <= 0:
+
+                record.payment_state = "not_paid"
+
+            elif amount_remaining <= 0.01:
 
                 record.payment_state = "paid"
 
@@ -431,6 +505,33 @@ class AssociationPenalty(models.Model):
             else:
 
                 record.payment_state = "partial"
+
+    # ==========================================================
+    # SIMPLIFICATION DE LA SAISIE
+    # ==========================================================
+
+    @api.onchange("penalty_type")
+    def _onchange_penalty_type(self):
+
+        for record in self:
+
+            if record.penalty_type == "corrective_action":
+
+                record.corrective_action_required = True
+
+            else:
+
+                record.corrective_action_required = False
+                record.corrective_action = False
+                record.corrective_deadline = False
+
+            if record.penalty_type != "fine":
+
+                record.amount = 0.0
+
+            if record.penalty_type != "suspension":
+
+                record.suspension_days = 0
 
     # ==========================================================
     # CRÉATION
@@ -449,6 +550,17 @@ class AssociationPenalty(models.Model):
                     )
                     or _("Nouveau")
                 )
+
+            if vals.get("penalty_type") == "corrective_action":
+
+                vals["corrective_action_required"] = True
+
+            penalty_type = vals.get("penalty_type") or "observation"
+
+            if penalty_type != "fine":
+
+                vals["amount"] = 0.0
+                vals["amount_paid"] = 0.0
 
         return super().create(vals_list)
 
@@ -734,4 +846,44 @@ class AssociationPenalty(models.Model):
 
         self._check_meeting_not_closed()
 
-        return super().write(vals)
+        vals = dict(vals)
+
+        if vals.get("penalty_type") and vals["penalty_type"] != "fine":
+
+            vals["amount"] = 0.0
+            vals["amount_paid"] = 0.0
+
+        result = super().write(vals)
+
+        cleanup_fields = {
+            "penalty_type",
+            "amount",
+            "amount_paid",
+        }
+
+        if (
+            not self.env.context.get("skip_non_financial_penalty_cleanup")
+            and cleanup_fields.intersection(vals)
+        ):
+
+            dirty_records = self.filtered(
+                lambda record:
+                    record.penalty_type != "fine"
+                    and (
+                        (record.amount or 0.0)
+                        or (record.amount_paid or 0.0)
+                    )
+            )
+
+            if dirty_records:
+
+                dirty_records.with_context(
+                    skip_non_financial_penalty_cleanup=True
+                ).write(
+                    {
+                        "amount": 0.0,
+                        "amount_paid": 0.0,
+                    }
+                )
+
+        return result

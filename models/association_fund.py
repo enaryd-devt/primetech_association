@@ -142,8 +142,15 @@ class AssociationFund(models.Model):
     # ==========================================================
 
     responsible_id = fields.Many2one(
-        comodel_name="res.users",
+        comodel_name="association.member",
         string="Responsable",
+        domain=[
+            (
+                "active",
+                "=",
+                True,
+            ),
+        ],
         tracking=True,
     )
 

@@ -81,20 +81,17 @@ class AssociationMember(models.Model):
 
     first_name = fields.Char(
         string="Prénom",
-        required=True,
         tracking=True,
     )
 
     last_name = fields.Char(
         string="Nom",
-        required=True,
         tracking=True,
     )
 
     name = fields.Char(
         string="Nom complet",
-        compute="_compute_name",
-        store=True,
+        required=True,
         tracking=True,
         index=True,
     )
@@ -779,12 +776,64 @@ class AssociationMember(models.Model):
                 rec.function_id and rec.function_id.executive_member
             )
 
-    @api.depends("first_name", "last_name")
-    def _compute_name(self):
-        for rec in self:
-            rec.name = " ".join(
-                filter(None, [rec.first_name, rec.last_name])
+    @api.model
+    def _prepare_name_values(self, vals, record=None):
+        name_in_vals = "name" in vals
+        first_name_in_vals = "first_name" in vals
+        last_name_in_vals = "last_name" in vals
+
+        first_name = (
+            vals.get("first_name")
+            if first_name_in_vals
+            else (
+                record.first_name
+                if record
+                else ""
             )
+        )
+        last_name = (
+            vals.get("last_name")
+            if last_name_in_vals
+            else (
+                record.last_name
+                if record
+                else ""
+            )
+        )
+        full_name = (vals.get("name") or "").strip()
+
+        first_name = (first_name or "").strip()
+        last_name = (last_name or "").strip()
+
+        if (
+            name_in_vals
+            and not first_name_in_vals
+            and not last_name_in_vals
+            and full_name
+        ):
+            parts = full_name.split()
+            vals["name"] = full_name
+            vals["first_name"] = parts[0] if parts else False
+            vals["last_name"] = (
+                " ".join(parts[1:])
+                if len(parts) > 1
+                else False
+            )
+
+        elif first_name_in_vals or last_name_in_vals:
+            vals["name"] = " ".join(
+                part
+                for part in [
+                    first_name,
+                    last_name,
+                ]
+                if part
+            )
+
+        elif name_in_vals and full_name:
+            vals["name"] = full_name
+
+        return vals
 
     @api.depends("join_date")
     def _compute_years_of_membership(self):
@@ -1137,54 +1186,32 @@ class AssociationMember(models.Model):
             # MEMBER NAME
             # ------------------------------------------------------
 
-            first_name = (vals.get("first_name") or "").strip()
-            last_name = (vals.get("last_name") or "").strip()
-
-            if first_name or last_name:
-                vals["name"] = " ".join(
-                    part
-                    for part in [
-                        first_name,
-                        last_name,
-                    ]
-                    if part
-                )
-
-            elif vals.get("name"):
-                vals["name"] = vals["name"].strip()
+            self._prepare_name_values(vals)
 
         return super().create(vals_list)
 
 
     def write(self, vals):
-
-        result = super().write(vals)
+        vals = dict(vals)
 
         if "first_name" in vals or "last_name" in vals:
-
             for rec in self:
-
-                first_name = (rec.first_name or "").strip()
-                last_name = (rec.last_name or "").strip()
-
-                member_name = " ".join(
-                    part
-                    for part in [
-                        first_name,
-                        last_name,
-                    ]
-                    if part
+                record_vals = dict(vals)
+                rec._prepare_name_values(
+                    record_vals,
+                    record=rec,
                 )
+                super(
+                    AssociationMember,
+                    rec,
+                ).write(record_vals)
 
-                if member_name and rec.name != member_name:
-                    super(
-                        AssociationMember,
-                        rec,
-                    ).write({
-                        "name": member_name,
-                    })
+            return True
 
-        return result
+        if "name" in vals:
+            self._prepare_name_values(vals)
+
+        return super().write(vals)
     
     # ==========================================================
     # ACTIONS

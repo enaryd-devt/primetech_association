@@ -283,6 +283,74 @@ class AssociationStatementReportWizard(models.TransientModel):
 
         return rows
 
+    def _get_discipline_report_lines(self):
+        self.ensure_one()
+
+        Penalty = self.env["association.penalty"]
+        penalty_type_labels = dict(
+            Penalty._fields["penalty_type"]._description_selection(self.env)
+        )
+        penalty_state_labels = dict(
+            Penalty._fields["state"]._description_selection(self.env)
+        )
+        payment_state_labels = dict(
+            Penalty._fields["payment_state"]._description_selection(self.env)
+        )
+
+        rows = []
+
+        for line in self.get_lines():
+            penalty_type = penalty_type_labels.get(
+                line.penalty_type,
+                line.penalty_type or "",
+            )
+            penalty_state = penalty_state_labels.get(
+                line.state,
+                line.state or "",
+            )
+            payment_state = payment_state_labels.get(
+                line.payment_state,
+                line.payment_state or "",
+            )
+
+            description_parts = [
+                part
+                for part in [
+                    penalty_type,
+                    line.penalty_description,
+                ]
+                if part
+            ]
+
+            if line.penalty_type == "fine":
+                value = "%s - %s" % (
+                    self._format_report_amount(line.amount),
+                    payment_state,
+                )
+            else:
+                value = "%s - %s" % (
+                    _("Non payable"),
+                    penalty_state,
+                )
+
+            rows.append(
+                {
+                    "date":
+                        line.incident_date,
+
+                    "reference":
+                        line.member_id.display_name or line.name or "",
+
+                    "description":
+                        " - ".join(description_parts),
+
+                    "value":
+                        value,
+                }
+            )
+
+        return rows
+
     def get_lines(self):
         self.ensure_one()
         if self.report_type == "member_account":
@@ -307,6 +375,9 @@ class AssociationStatementReportWizard(models.TransientModel):
     def get_report_lines(self):
         if self.is_account_report():
             return self._get_account_report_lines()
+
+        if self.report_type.startswith("discipline"):
+            return self._get_discipline_report_lines()
 
         rows = []
         for line in self.get_lines():

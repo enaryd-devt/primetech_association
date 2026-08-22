@@ -2150,7 +2150,57 @@ class AssociationMeeting(models.Model):
             )
 
         return True
-  
+
+
+    # ==========================================================
+    # APPLIQUER LES SANCTIONS EN ATTENTE
+    # ==========================================================
+
+    def action_apply_draft_penalties(self):
+
+        for meeting in self:
+
+            if meeting.state == "closed":
+
+                raise UserError(
+                    _(
+                        "Impossible d'appliquer les sanctions.\n\n"
+                        "La réunion est clôturée."
+                    )
+                )
+
+            draft_penalties = meeting.penalty_ids.filtered(
+                lambda penalty:
+                    penalty.state == "draft"
+            )
+
+            if not draft_penalties:
+
+                raise UserError(
+                    _(
+                        "Aucune sanction en attente à appliquer."
+                    )
+                )
+
+            draft_count = len(draft_penalties)
+
+            draft_penalties.action_validate()
+
+            meeting.message_post(
+                body=_(
+                    "%(count)s sanction(s) ont été appliquée(s) "
+                    "pendant la réunion."
+                )
+                % {
+                    "count": draft_count,
+                }
+            )
+
+        return {
+            "type": "ir.actions.client",
+            "tag": "reload",
+        }
+
 
     # ==========================================================
     # SÉLECTION COMPLÈTE DES HEURES
