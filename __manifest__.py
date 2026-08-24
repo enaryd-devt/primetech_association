@@ -120,6 +120,7 @@ Bonnes pratiques
         "views/dashboard_views.xml",
 
         "views/member_views.xml",
+        "views/member_card_wizard_views.xml",
         "views/member_card_views.xml",
 
         "views/committee_views.xml",

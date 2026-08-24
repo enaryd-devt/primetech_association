@@ -10,10 +10,12 @@
 #
 ##############################################################################
 
+import unicodedata
+
 from dateutil.relativedelta import relativedelta
 
 from odoo import api, fields, models, _
-from odoo.exceptions import ValidationError
+from odoo.exceptions import UserError, ValidationError
 
 
 class AssociationCard(models.Model):
@@ -491,6 +493,20 @@ class AssociationCard(models.Model):
 
         return True
 
+    def action_quick_block(self):
+        self.filtered(
+            lambda card: not card.blocked_reason
+        ).write(
+            {
+                "blocked_reason":
+                    _(
+                        "Blocage rapide depuis la carte membre."
+                    ),
+            }
+        )
+
+        return self.action_block()
+
     # ==========================================================
     # RÉACTIVER
     # ==========================================================
@@ -593,6 +609,20 @@ class AssociationCard(models.Model):
 
         return True
 
+    def action_quick_cancel(self):
+        self.filtered(
+            lambda card: not card.cancellation_reason
+        ).write(
+            {
+                "cancellation_reason":
+                    _(
+                        "Annulation rapide depuis la carte membre."
+                    ),
+            }
+        )
+
+        return self.action_cancel()
+
     # ==========================================================
     # RENOUVELER
     # ==========================================================
@@ -686,12 +716,213 @@ class AssociationCard(models.Model):
                 "default_company_id": self.company_id.id,
             },
         }
+
+    # ==========================================================
+    # ACTIONS DE MASSE
+    # ==========================================================
+
+    def action_mass_activate(self):
+        """
+        Issue draft cards and reactivate blocked cards from the list view.
+        Active cards are kept unchanged.
+        """
+        draft_cards = self.filtered(
+            lambda card: card.state == "draft"
+        )
+        blocked_cards = self.filtered(
+            lambda card:
+                card.state == "blocked"
+                and not card.is_expired
+        )
+
+        actionable_cards = draft_cards | blocked_cards
+
+        if not actionable_cards and not self.filtered(
+            lambda card: card.state == "active"
+        ):
+            raise UserError(
+                _(
+                    "Aucune carte sélectionnée ne peut être activée.\n\n"
+                    "Seules les cartes en brouillon ou bloquées "
+                    "peuvent être activées en masse."
+                )
+            )
+
+        if draft_cards:
+            draft_cards.action_issue()
+
+        if blocked_cards:
+            blocked_cards.action_reactivate()
+
+        return True
+
+    def action_mass_block(self):
+        """
+        Block selected active cards from the list view.
+        """
+        active_cards = self.filtered(
+            lambda card: card.state == "active"
+        )
+
+        if not active_cards:
+            raise UserError(
+                _(
+                    "Aucune carte active n'a été sélectionnée.\n\n"
+                    "Seules les cartes actives peuvent être bloquées."
+                )
+            )
+
+        active_cards.filtered(
+            lambda card: not card.blocked_reason
+        ).write(
+            {
+                "blocked_reason":
+                    _(
+                        "Blocage en masse depuis la liste "
+                        "des cartes de membre."
+                    ),
+            }
+        )
+
+        active_cards.action_block()
+
+        return True
+
+    def action_mass_expire(self):
+        """
+        Mark selected active or blocked cards as expired from the list view.
+        """
+        cards_to_expire = self.filtered(
+            lambda card: card.state in ("active", "blocked")
+        )
+
+        if not cards_to_expire:
+            raise UserError(
+                _(
+                    "Aucune carte sélectionnée ne peut être marquée "
+                    "comme expirée.\n\n"
+                    "Seules les cartes actives ou bloquées peuvent "
+                    "être marquées comme expirées."
+                )
+            )
+
+        cards_to_expire.action_expire()
+
+        return True
+
+    def action_mass_cancel(self):
+        """
+        Cancel selected cards from the list view.
+        """
+        cards_to_cancel = self.filtered(
+            lambda card: card.state != "cancelled"
+        )
+
+        if not cards_to_cancel:
+            raise UserError(
+                _("Toutes les cartes sélectionnées sont déjà annulées.")
+            )
+
+        cards_to_cancel.filtered(
+            lambda card: not card.cancellation_reason
+        ).write(
+            {
+                "cancellation_reason":
+                    _(
+                        "Annulation en masse depuis la liste "
+                        "des cartes de membre."
+                    ),
+            }
+        )
+
+        cards_to_cancel.action_cancel()
+
+        return True
+
+    def action_mass_suspend(self):
+        return self.action_mass_block()
+
+    def action_mass_deactivate(self):
+        return self.action_mass_cancel()
+
+    # ==========================================================
+    # REPORT - THEME COULEUR
+    # ==========================================================
+
+    def _normalize_theme_keyword(self, value):
+        normalized = unicodedata.normalize(
+            "NFKD",
+            value or "",
+        )
+        return normalized.encode(
+            "ascii",
+            "ignore",
+        ).decode(
+            "ascii"
+        ).lower()
+
+    def get_member_card_theme(self):
+        self.ensure_one()
+
+        themes = {
+            "ordinary": {
+                "dark": "#111827",
+                "accent": "#0f766e",
+                "accent_light": "#5eead4",
+                "soft": "#ecfdf5",
+                "avatar_bg": "#ccfbf1",
+                "border": "#99e6d8",
+            },
+            "executive": {
+                "dark": "#0f172a",
+                "accent": "#b7791f",
+                "accent_light": "#fde68a",
+                "soft": "#fffbeb",
+                "avatar_bg": "#fef3c7",
+                "border": "#f5d77a",
+            },
+        }
+
+        member = self.member_id
+        function = self.function_id
+        keyword = self._normalize_theme_keyword(
+            function.name if function else ""
+        )
+
+        executive_markers = [
+            "administrateur",
+            "bureau",
+            "censeur",
+            "president",
+            "responsable",
+            "secretaire",
+            "tresorier",
+            "vice",
+        ]
+
+        is_executive = bool(member and member.committee_id)
+        if (
+            not is_executive
+            and function
+            and "executive_member" in function._fields
+        ):
+            is_executive = bool(function.executive_member)
+        if not is_executive:
+            is_executive = any(
+                marker in keyword for marker in executive_markers
+            )
+
+        return themes["executive"] if is_executive else themes["ordinary"]
+
     # ==========================================================
     # ACTION - IMPRIMER LA CARTE MEMBRE
     # ==========================================================
 
     def action_print_member_card(self):
-        self.ensure_one()
+        if not self:
+            raise UserError(
+                _("Veuillez sélectionner au moins une carte à générer.")
+            )
 
         report_action = self.env.ref(
             "primetech_association.action_report_member_card",

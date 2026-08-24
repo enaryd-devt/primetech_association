@@ -105,6 +105,17 @@
                 decoration-danger="state in ('blocked', 'cancelled')"
                 default_order="issue_date desc, id desc">
 
+                <header>
+                    <button
+                        name="%(action_card_generation_wizard)d"
+                        type="action"
+                        string="Générer des cartes"
+                        icon="fa-id-card-o"
+                        class="btn-primary"
+                        display="always"
+                        groups="primetech_association.group_association_manager,primetech_association.group_association_admin"/>
+                </header>
+
                 <field
                     name="card_number"
                     string="N° Carte"/>
@@ -168,6 +179,17 @@
                 class="o_kanban_small_column"
                 default_order="issue_date desc, id desc">
 
+                <header>
+                    <button
+                        name="%(action_card_generation_wizard)d"
+                        type="action"
+                        string="Générer des cartes"
+                        icon="fa-id-card-o"
+                        class="btn-primary"
+                        display="always"
+                        groups="primetech_association.group_association_manager,primetech_association.group_association_admin"/>
+                </header>
+
                 <field name="id"/>
                 <field name="card_number"/>
                 <field name="member_id"/>
@@ -184,6 +206,60 @@
                     <t t-name="card">
 
                         <div class="oe_kanban_global_click o_kanban_record association_member_card">
+
+                            <div
+                                class="association_member_card__actions"
+                                groups="primetech_association.group_association_manager,primetech_association.group_association_admin">
+
+                                <button
+                                    name="action_print_member_card"
+                                    type="object"
+                                    class="association_member_card__action"
+                                    icon="fa-print"
+                                    title="Imprimer"
+                                    invisible="state not in ('active', 'expired', 'blocked')"/>
+
+                                <button
+                                    name="action_issue"
+                                    type="object"
+                                    class="association_member_card__action"
+                                    icon="fa-check"
+                                    title="Activer"
+                                    invisible="state != 'draft'"/>
+
+                                <button
+                                    name="action_reactivate"
+                                    type="object"
+                                    class="association_member_card__action"
+                                    icon="fa-undo"
+                                    title="Réactiver"
+                                    invisible="state != 'blocked'"/>
+
+                                <button
+                                    name="action_quick_block"
+                                    type="object"
+                                    class="association_member_card__action"
+                                    icon="fa-ban"
+                                    title="Bloquer"
+                                    invisible="state != 'active'"/>
+
+                                <button
+                                    name="action_expire"
+                                    type="object"
+                                    class="association_member_card__action"
+                                    icon="fa-clock-o"
+                                    title="Marquer expirée"
+                                    invisible="state not in ('active', 'blocked')"/>
+
+                                <button
+                                    name="action_quick_cancel"
+                                    type="object"
+                                    class="association_member_card__action"
+                                    icon="fa-times"
+                                    title="Annuler"
+                                    invisible="state == 'cancelled'"/>
+
+                            </div>
 
                             <div class="association_member_card__hero">
                                 <div class="association_member_card__glow"></div>
@@ -739,6 +815,98 @@
 
         </field>
 
+    </record>
+
+    <!-- ========================================================= -->
+    <!-- ACTIONS DE MASSE                                          -->
+    <!-- ========================================================= -->
+
+    <record id="action_card_mass_generate" model="ir.actions.server">
+        <field name="name">Ancienne génération de cartes (désactivée)</field>
+        <field name="model_id" ref="model_association_card"/>
+        <field name="binding_model_id" eval="False"/>
+        <field name="binding_type">action</field>
+        <field name="binding_view_types"></field>
+        <field name="state">code</field>
+        <field name="code">
+action = False
+        </field>
+    </record>
+
+    <record id="action_card_mass_activate" model="ir.actions.server">
+        <field name="name">Activer / réactiver</field>
+        <field name="model_id" ref="model_association_card"/>
+        <field name="binding_model_id" ref="model_association_card"/>
+        <field name="binding_type">action</field>
+        <field name="binding_view_types">list</field>
+        <field
+            name="groups_id"
+            eval="[
+                (4, ref('primetech_association.group_association_manager')),
+                (4, ref('primetech_association.group_association_admin'))
+            ]"/>
+        <field name="state">code</field>
+        <field name="code">
+records.action_mass_activate()
+action = {'type': 'ir.actions.client', 'tag': 'reload'}
+        </field>
+    </record>
+
+    <record id="action_card_mass_suspend" model="ir.actions.server">
+        <field name="name">Bloquer</field>
+        <field name="model_id" ref="model_association_card"/>
+        <field name="binding_model_id" ref="model_association_card"/>
+        <field name="binding_type">action</field>
+        <field name="binding_view_types">list</field>
+        <field
+            name="groups_id"
+            eval="[
+                (4, ref('primetech_association.group_association_manager')),
+                (4, ref('primetech_association.group_association_admin'))
+            ]"/>
+        <field name="state">code</field>
+        <field name="code">
+records.action_mass_block()
+action = {'type': 'ir.actions.client', 'tag': 'reload'}
+        </field>
+    </record>
+
+    <record id="action_card_mass_expire" model="ir.actions.server">
+        <field name="name">Marquer expirée</field>
+        <field name="model_id" ref="model_association_card"/>
+        <field name="binding_model_id" ref="model_association_card"/>
+        <field name="binding_type">action</field>
+        <field name="binding_view_types">list</field>
+        <field
+            name="groups_id"
+            eval="[
+                (4, ref('primetech_association.group_association_manager')),
+                (4, ref('primetech_association.group_association_admin'))
+            ]"/>
+        <field name="state">code</field>
+        <field name="code">
+records.action_mass_expire()
+action = {'type': 'ir.actions.client', 'tag': 'reload'}
+        </field>
+    </record>
+
+    <record id="action_card_mass_deactivate" model="ir.actions.server">
+        <field name="name">Annuler</field>
+        <field name="model_id" ref="model_association_card"/>
+        <field name="binding_model_id" ref="model_association_card"/>
+        <field name="binding_type">action</field>
+        <field name="binding_view_types">list</field>
+        <field
+            name="groups_id"
+            eval="[
+                (4, ref('primetech_association.group_association_manager')),
+                (4, ref('primetech_association.group_association_admin'))
+            ]"/>
+        <field name="state">code</field>
+        <field name="code">
+records.action_mass_cancel()
+action = {'type': 'ir.actions.client', 'tag': 'reload'}
+        </field>
     </record>
 
 </odoo>
